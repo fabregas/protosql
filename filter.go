@@ -1,0 +1,277 @@
+package protosql
+
+import (
+	"errors"
+	"fmt"
+	"reflect"
+	"strings"
+	"time"
+)
+
+type TimestampValue interface {
+	GetSeconds() int64
+}
+
+//type TimeRange struct {
+//	From TimestampValue
+//	To   TimestampValue
+//}
+
+// Basic filter types
+type StringValue interface{ GetValue() string }
+type Int64Value interface{ GetValue() int64 }
+type Int32Value interface{ GetValue() int32 }
+type IntValue interface{ GetValue() int }
+type BoolValue interface{ GetValue() bool }
+
+type operator int
+
+const (
+	eqOp operator = iota
+	neqOp
+	gtOp
+	gteOp
+	ltOp
+	lteOp
+	containOp
+	inOp
+
+	jsonArrInOp
+
+	emptyStrOp
+	notEmptyStrOp
+
+	arrContainOp
+)
+
+func (o operator) value() (s string) {
+	switch o {
+	case eqOp, emptyStrOp:
+		s = "="
+	case neqOp, notEmptyStrOp:
+		s = "!="
+	case gtOp:
+		s = ">"
+	case gteOp:
+		s = ">="
+	case ltOp:
+		s = "<"
+	case lteOp:
+		s = "<="
+	case containOp:
+		s = "ILIKE"
+	case inOp:
+		s = "IN"
+	case jsonArrInOp:
+		s = "?|"
+	case arrContainOp:
+		s = "@>"
+	}
+
+	return
+}
+
+var (
+	ignoreFilterErr = errors.New("filter no need")
+)
+
+type filterExpr struct {
+	lval string
+	op   operator
+	rval interface{}
+}
+
+func (f filterExpr) formatStr(s string) string {
+	if f.op == containOp {
+		return fmt.Sprintf("%%%s%%", s)
+	}
+
+	return s
+}
+
+func (f filterExpr) format(gidx int) (string, []interface{}, error) {
+	if f.rval == nil {
+		return "", nil, ignoreFilterErr
+	}
+
+	switch f.op {
+	case emptyStrOp, notEmptyStrOp:
+		return fmt.Sprintf("%s %s ''", f.lval, f.op.value()), nil, nil
+	}
+
+	if val := reflect.ValueOf(f.rval); val.Kind() == reflect.Ptr && val.IsNil() {
+		return "", nil, ignoreFilterErr
+	}
+
+	var retList []interface{}
+	switch v := f.rval.(type) {
+	case int, int32, int64, bool:
+		retList = append(retList, f.rval)
+	case string:
+		if len(v) == 0 {
+			return "", nil, ignoreFilterErr
+		}
+		retList = append(retList, f.formatStr(v))
+	case StringValue:
+		if len(v.GetValue()) == 0 {
+			return "", nil, ignoreFilterErr
+		}
+		retList = append(retList, f.formatStr(v.GetValue()))
+	case Int64Value:
+		retList = append(retList, v.GetValue())
+	case Int32Value:
+		retList = append(retList, v.GetValue())
+	case IntValue:
+		retList = append(retList, v.GetValue())
+	case BoolValue:
+		retList = append(retList, v.GetValue())
+	case []int:
+		for _, iv := range v {
+			retList = append(retList, iv)
+		}
+	case []int32:
+		for _, iv := range v {
+			retList = append(retList, iv)
+		}
+	case []int64:
+		for _, iv := range v {
+			retList = append(retList, iv)
+		}
+	case []string:
+		for _, sv := range v {
+			if sv == "" {
+				continue
+			}
+			retList = append(retList, sv)
+		}
+	case TimestampValue:
+		if v.GetSeconds() == 0 {
+			return "", nil, ignoreFilterErr
+		}
+		retList = append(retList, time.Unix(v.GetSeconds(), 0))
+	default:
+		return "", nil, fmt.Errorf("unexpected type of rval in SQL filter: %T", f.rval)
+	}
+
+	placeholders := fmt.Sprintf("$%d", gidx)
+	switch f.op {
+	case inOp, jsonArrInOp, arrContainOp:
+		if len(retList) == 0 {
+			return "", nil, ignoreFilterErr
+		}
+
+		s := make([]string, len(retList))
+		for i := 0; i < len(retList); i++ {
+			s[i] = fmt.Sprintf("$%d", gidx+i)
+		}
+
+		switch f.op {
+		case inOp:
+			placeholders = fmt.Sprintf("(%s)", strings.Join(s, ", "))
+		case jsonArrInOp, arrContainOp:
+			placeholders = fmt.Sprintf("array[%s]", strings.Join(s, ", "))
+		}
+	}
+
+	return fmt.Sprintf("%s %s %s", f.lval, f.op.value(), placeholders), retList, nil
+}
+
+type Filter struct {
+	exprList []filterExpr
+}
+
+func (f *Filter) addExpr(e filterExpr) {
+	f.exprList = append(f.exprList, e)
+}
+
+func NewFilter() *Filter {
+	return &Filter{}
+}
+
+func (f *Filter) Eq(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: eqOp, rval: rval})
+	return f
+}
+
+func (f *Filter) Neq(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: neqOp, rval: rval})
+	return f
+}
+
+func (f *Filter) In(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: inOp, rval: rval})
+	return f
+}
+
+func (f *Filter) Gt(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: gtOp, rval: rval})
+	return f
+}
+
+func (f *Filter) Gte(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: gteOp, rval: rval})
+	return f
+}
+
+func (f *Filter) Lt(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: ltOp, rval: rval})
+	return f
+}
+
+func (f *Filter) Lte(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: lteOp, rval: rval})
+	return f
+}
+
+func (f *Filter) Contain(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: containOp, rval: rval})
+	return f
+}
+
+func (f *Filter) JsonArrIn(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: jsonArrInOp, rval: rval})
+	return f
+}
+
+func (f *Filter) ArrContainOp(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: arrContainOp, rval: rval})
+	return f
+}
+
+func (f *Filter) EmptyStr(lval string) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: emptyStrOp, rval: ""})
+	return f
+}
+
+func (f *Filter) NotEmptyStr(lval string) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: notEmptyStrOp, rval: ""})
+	return f
+}
+
+func (f *Filter) WhereQuery() (string, []interface{}, error) {
+	var (
+		whereList []string
+		whereStmt string
+		argsList  []interface{}
+	)
+
+	i := 1
+	for _, e := range f.exprList {
+		v, l, err := e.format(i)
+		if err == ignoreFilterErr {
+			continue
+		}
+		if err != nil {
+			return "", nil, err
+		}
+		i += len(l)
+		whereList = append(whereList, v)
+		argsList = append(argsList, l...)
+	}
+
+	if len(whereList) > 0 {
+		whereStmt = fmt.Sprintf(" WHERE %s", strings.Join(whereList, " AND "))
+	}
+
+	return whereStmt, argsList, nil
+}
