@@ -1,4 +1,4 @@
-module protosql
+module github.com/fabregas/protosql
 
 go 1.17
 
