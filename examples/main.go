@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -44,26 +45,26 @@ func main() {
 		CreateTime:  timestamppb.New(time.Now()),
 	}
 
-	err = r.Insert(obj)
+	err = r.Insert(context.Background(), obj)
 	if err != nil {
 		panic(err)
 	}
 
 	obj.Status = ProjectStatus_PROJECT_STATUS_BLOCKED
-	err = r.UpdateByID(obj)
+	err = r.UpdateByID(context.Background(), obj)
 	if err != nil {
 		panic(err)
 	}
 
 	var p Project
-	err = r.GetByID(&p, 6522)
+	err = r.GetByID(context.Background(), &p, 6522)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("PROJECT: ", &p)
 
 	var ret []*Project
-	err = r.Select().Where(
+	err = r.Select(context.Background()).Where(
 		protosql.NewFilter().
 			NotEmptyStr("name").
 			Eq("name", "test"),
@@ -77,7 +78,7 @@ func main() {
 
 	fmt.Println("============================")
 	ret = ret[:0]
-	err = r.Select().
+	err = r.Select(context.Background()).
 		As("p").
 		LeftJoin("partner as pt", "pt.id = p.partner_id").
 		Where(
@@ -102,7 +103,10 @@ func main() {
 		PartnerName  string `db:"name=pt.name"`
 	}
 	var xx []*XX
-	err = r.SelectCustom("SELECT p.description, pt.name FROM projects as p LEFT JOIN partner as pt ON pt.id = p.partner_id").
+	err = r.SelectCustom(
+		context.Background(),
+		"SELECT p.description, pt.name FROM projects as p LEFT JOIN partner as pt ON pt.id = p.partner_id",
+	).
 		Where(
 			protosql.NewFilter().
 				NotEmptyStr("p.name").
@@ -117,5 +121,4 @@ func main() {
 	for _, v := range xx {
 		fmt.Printf("%+v\n", v)
 	}
-
 }

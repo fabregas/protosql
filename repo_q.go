@@ -1,6 +1,7 @@
 package protosql
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"reflect"
@@ -10,7 +11,8 @@ import (
 )
 
 type repoQ struct {
-	r *Repo
+	r   *Repo
+	ctx context.Context
 
 	query    string
 	alias    string
@@ -111,7 +113,7 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 
 	q.r.logger.Debugf("QUERY: %s, ARGS: %+v", baseQuery+wq, args)
 
-	rows, err := q.r.db.Query(baseQuery+wq, args...)
+	rows, err := q.r.getDB(q.ctx).QueryContext(q.ctx, baseQuery+wq, args...)
 	if err != nil {
 		return nil, err
 	}

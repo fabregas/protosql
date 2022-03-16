@@ -2,6 +2,8 @@ module examples
 
 go 1.17
 
+replace github.com/fabregas/protosql => ../
+
 require (
 	github.com/fabregas/protosql v0.0.2
 	github.com/lib/pq v1.10.4

@@ -1,6 +1,7 @@
 package protosql
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -17,33 +18,33 @@ func NewRepo(db *sql.DB, tableName string, obj Model, logger Logger) Repo {
 	return Repo{table: tableName, db: db, fields: objFields(obj), logger: logger}
 }
 
-func (r Repo) Insert(obj Model) error {
+func (r Repo) Insert(ctx context.Context, obj Model) error {
 	q, params := insertQ(r.table, obj)
 
-	_, err := r.db.Exec(q, params...)
+	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
 
 	return err
 }
 
-func (r Repo) UpdateByID(obj Model) error {
+func (r Repo) UpdateByID(ctx context.Context, obj Model) error {
 	q, params := updateQ(r.table, obj, "id")
 
-	_, err := r.db.Exec(q, params...)
+	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
 
 	return err
 }
 
-func (r Repo) GetByID(obj Model, id interface{}) error {
-	q := &repoQ{r: &r}
+func (r Repo) GetByID(ctx context.Context, obj Model, id interface{}) error {
+	q := &repoQ{r: &r, ctx: ctx}
 	return q.Where(NewFilter().Eq("id", id)).FetchOne(obj)
 }
 
-func (r Repo) Select() *repoQ {
-	return &repoQ{r: &r}
+func (r Repo) Select(ctx context.Context) *repoQ {
+	return &repoQ{r: &r, ctx: ctx}
 }
 
-func (r Repo) SelectCustom(query string) *repoQ {
-	return &repoQ{r: &r, query: query}
+func (r Repo) SelectCustom(ctx context.Context, query string) *repoQ {
+	return &repoQ{r: &r, query: query, ctx: ctx}
 }
 
 func (r Repo) SelectQuery() string {
@@ -118,4 +119,44 @@ func objFields(obj Model) []string {
 	}
 
 	return fields
+}
+
+type dbExec interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+}
+
+func (r Repo) getDB(ctx context.Context) dbExec {
+	v := ctx.Value("_dbtx_")
+	if v == nil {
+		return r.db
+	}
+
+	tx, ok := v.(*sql.Tx)
+	if !ok {
+		panic("invalid TX type ?!")
+	}
+
+	return tx
+}
+
+func (r Repo) Transaction(ctx context.Context, txFunc func(context.Context) error) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	ctx = context.WithValue(ctx, "_dbtx_", tx)
+
+	err = txFunc(ctx)
+
+	if err != nil {
+		if rerr := tx.Rollback(); rerr != nil {
+			r.logger.Errorf("rollback tx failed: %s", rerr)
+		}
+
+		return err
+	}
+
+	return tx.Commit()
 }
