@@ -97,7 +97,7 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
 	ret := TestModel{}
-	err := r.GetByID(context.Background(), &ret, 22)
+	err := r.FindByID(context.Background(), 22).FetchOne(&ret)
 
 	if err != nil {
 		t.Fatalf("GetByID() failed: %s", err)
