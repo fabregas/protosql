@@ -57,7 +57,7 @@ func main() {
 	}
 
 	var p Project
-	err = r.GetByID(context.Background(), &p, 6522)
+	err = r.FindByID(context.Background(), 6522).FetchOne(&p)
 	if err != nil {
 		panic(err)
 	}

@@ -34,9 +34,9 @@ func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
 	return err
 }
 
-func (r *Repo) GetByID(ctx context.Context, obj Model, id interface{}) error {
+func (r *Repo) FindByID(ctx context.Context, id interface{}) *repoQ {
 	q := &repoQ{r: r, ctx: ctx}
-	return q.Where(NewFilter().Eq("id", id)).FetchOne(obj)
+	return q.Where(NewFilter().Eq("id", id))
 }
 
 func (r *Repo) Select(ctx context.Context) *repoQ {
