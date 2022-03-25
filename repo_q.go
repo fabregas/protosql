@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -176,6 +177,12 @@ func scanObj(s scanner, obj Model) error {
 				return fmt.Errorf("invalid Timestamp type")
 			}
 			v = &timeScanner{t}
+		case durationIface:
+			d, ok := f.val.Addr().Interface().(**durationpb.Duration)
+			if !ok {
+				return fmt.Errorf("invalid Duration type")
+			}
+			v = &durationScanner{d}
 		default:
 			v = f.val.Addr().Interface()
 		}
@@ -197,5 +204,19 @@ func (s *timeScanner) Scan(src interface{}) error {
 	}
 
 	*s.t = timestamppb.New(v)
+	return nil
+}
+
+type durationScanner struct {
+	d **durationpb.Duration
+}
+
+func (s *durationScanner) Scan(src interface{}) error {
+	v, ok := src.(int64)
+	if !ok {
+		return fmt.Errorf("invalid value for duration: %v", src)
+	}
+
+	*s.d = durationpb.New(time.Duration(v * 1000000)) //convert ms to ns
 	return nil
 }

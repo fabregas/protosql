@@ -54,22 +54,20 @@ func toSqlParams(params []parsedField) ([]string, []interface{}) {
 	return names, values
 }
 
-//type enumIface interface {
-//	String() string
-//	EnumDescriptor() ([]byte, []int)
-//}
-
 type timeIface interface {
 	AsTime() time.Time
 }
 
+type durationIface interface {
+	AsDuration() time.Duration
+}
+
 func toSqlParam(v reflect.Value) interface{} {
 	switch e := v.Interface().(type) {
-	//case enumIface:
-	//	// TODO maybe int value of enum should be stored insted of string?
-	//	return e.String()
 	case timeIface:
 		return e.AsTime()
+	case durationIface:
+		return e.AsDuration().Milliseconds()
 	}
 
 	switch v.Type().Kind() {

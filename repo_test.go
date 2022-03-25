@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -51,6 +52,7 @@ func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		m.Status,
 		m.CreateTime.AsTime(),
 		m.UpdateTime.AsTime(),
+		m.OnlineDuration.AsDuration(),
 		m.Count,
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -73,6 +75,7 @@ func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		m.Status,
 		m.CreateTime.AsTime(),
 		m.UpdateTime.AsTime(),
+		m.OnlineDuration.AsDuration(),
 		m.Count,
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -88,9 +91,9 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	t0 := time.Now().Add(-time.Minute)
 	t1 := time.Now()
 	rows := sqlmock.NewRows(
-		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "count"},
+		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count"},
 	).AddRow(
-		22, "test", "test.com", "some descr", 1, t0, t1, 334,
+		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334,
 	)
 
 	mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(22).WillReturnError(nil).WillReturnRows(rows)
@@ -100,7 +103,7 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	err := r.FindByID(context.Background(), 22).FetchOne(&ret)
 
 	if err != nil {
-		t.Fatalf("GetByID() failed: %s", err)
+		t.Fatalf("FindByID() failed: %s", err)
 	}
 
 	expectEq(t, ret.Id, int32(22))
@@ -166,14 +169,15 @@ func (l dummyLogger) Errorf(format string, args ...interface{}) {}
 // --- model
 
 type TestModel struct {
-	Id          int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name        string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Website     string                 `protobuf:"bytes,3,opt,name=website,proto3" json:"website,omitempty"`
-	Description string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	Status      TestModelStatus        `protobuf:"varint,5,opt,name=status,proto3,enum=some.v1.TestModelStatus" json:"status,omitempty"`
-	CreateTime  *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	UpdateTime  *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
-	Count       int64                  `protobuf:"bytes,8,opt,name=count,json=count,proto3" json:"count,omitempty"`
+	Id             int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Website        string                 `protobuf:"bytes,3,opt,name=website,proto3" json:"website,omitempty"`
+	Description    string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Status         TestModelStatus        `protobuf:"varint,5,opt,name=status,proto3,enum=some.v1.TestModelStatus" json:"status,omitempty"`
+	CreateTime     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	UpdateTime     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
+	OnlineDuration *durationpb.Duration   `protobuf:"bytes,8,opt,name=online_duration,json=updateTime,proto3" json:"online_duration,omitempty"`
+	Count          int64                  `protobuf:"bytes,9,opt,name=count,json=count,proto3" json:"count,omitempty"`
 }
 
 func (*TestModel) Reset()        {}
