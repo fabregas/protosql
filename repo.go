@@ -14,11 +14,11 @@ type Repo struct {
 	logger Logger
 }
 
-func NewRepo(db *sql.DB, tableName string, obj Model, logger Logger) Repo {
-	return Repo{table: tableName, db: db, fields: objFields(obj), logger: logger}
+func NewRepo(db *sql.DB, tableName string, obj Model, logger Logger) *Repo {
+	return &Repo{table: tableName, db: db, fields: objFields(obj), logger: logger}
 }
 
-func (r Repo) Insert(ctx context.Context, obj Model) error {
+func (r *Repo) Insert(ctx context.Context, obj Model) error {
 	q, params := insertQ(r.table, obj)
 
 	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
@@ -26,7 +26,7 @@ func (r Repo) Insert(ctx context.Context, obj Model) error {
 	return err
 }
 
-func (r Repo) UpdateByID(ctx context.Context, obj Model) error {
+func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
 	q, params := updateQ(r.table, obj, "id")
 
 	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
@@ -34,24 +34,24 @@ func (r Repo) UpdateByID(ctx context.Context, obj Model) error {
 	return err
 }
 
-func (r Repo) GetByID(ctx context.Context, obj Model, id interface{}) error {
-	q := &repoQ{r: &r, ctx: ctx}
+func (r *Repo) GetByID(ctx context.Context, obj Model, id interface{}) error {
+	q := &repoQ{r: r, ctx: ctx}
 	return q.Where(NewFilter().Eq("id", id)).FetchOne(obj)
 }
 
-func (r Repo) Select(ctx context.Context) *repoQ {
-	return &repoQ{r: &r, ctx: ctx}
+func (r *Repo) Select(ctx context.Context) *repoQ {
+	return &repoQ{r: r, ctx: ctx}
 }
 
-func (r Repo) SelectCustom(ctx context.Context, query string) *repoQ {
-	return &repoQ{r: &r, query: query, ctx: ctx}
+func (r *Repo) SelectCustom(ctx context.Context, query string) *repoQ {
+	return &repoQ{r: r, query: query, ctx: ctx}
 }
 
-func (r Repo) SelectQuery() string {
+func (r *Repo) SelectQuery() string {
 	return r.selectQuery("")
 }
 
-func (r Repo) selectQuery(alias string) string {
+func (r *Repo) selectQuery(alias string) string {
 	var fields []string
 	al := alias
 	if al == "" {
@@ -126,7 +126,7 @@ type dbExec interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 }
 
-func (r Repo) getDB(ctx context.Context) dbExec {
+func (r *Repo) getDB(ctx context.Context) dbExec {
 	v := ctx.Value("_dbtx_")
 	if v == nil {
 		return r.db
@@ -140,7 +140,7 @@ func (r Repo) getDB(ctx context.Context) dbExec {
 	return tx
 }
 
-func (r Repo) Transaction(ctx context.Context, txFunc func(context.Context) error) error {
+func (r *Repo) Transaction(ctx context.Context, txFunc func(context.Context) error) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
