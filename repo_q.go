@@ -18,7 +18,7 @@ type repoQ struct {
 	query   string
 	alias   string
 	filter  *Filter
-	sorting Sorting
+	sorting *Sorting
 	pager   Pager
 	joins   []join
 }
@@ -43,7 +43,7 @@ func (q *repoQ) Where(f *Filter) *repoQ {
 	return q
 }
 
-func (q *repoQ) OrderBy(s Sorting) *repoQ {
+func (q *repoQ) OrderBy(s *Sorting) *repoQ {
 	q.sorting = s
 	return q
 }
