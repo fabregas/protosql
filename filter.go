@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type TimestampValue interface {
@@ -144,6 +146,14 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 			return "", nil, ignoreFilterErr
 		}
 		retList = append(retList, time.Unix(v.GetSeconds(), 0))
+
+	case protoreflect.Enum:
+		n := int32(v.Number())
+		if n == 0 {
+			// enum val with 0 must be UNSPECIFIED and should not be filtered
+			return "", nil, ignoreFilterErr
+		}
+		retList = append(retList, n)
 	default:
 		return "", nil, fmt.Errorf("unexpected type of rval in SQL filter: %T", f.rval)
 	}
