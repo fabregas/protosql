@@ -18,7 +18,7 @@ type repoQ struct {
 	query   string
 	alias   string
 	filter  *Filter
-	sorting *Sorting
+	sorting interface{}
 	pager   Pager
 	joins   []join
 }
@@ -43,7 +43,8 @@ func (q *repoQ) Where(f *Filter) *repoQ {
 	return q
 }
 
-func (q *repoQ) OrderBy(s *Sorting) *repoQ {
+// s must be *Sorting or sorting proto message
+func (q *repoQ) OrderBy(s interface{}) *repoQ {
 	q.sorting = s
 	return q
 }
@@ -96,7 +97,7 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 	}
 
 	if q.sorting != nil {
-		wq += sortQuery(q.sorting)
+		wq += sortQuery(newSorting(q.sorting))
 	}
 
 	if q.pager != nil {

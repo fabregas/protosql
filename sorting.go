@@ -23,9 +23,18 @@ type Sorting struct {
 }
 
 // returns first defined sorting from proto message
-func NewSorting(protoSorting Model) *Sorting {
-	if protoSorting == nil {
+func newSorting(s interface{}) *Sorting {
+	if s == nil {
 		return nil
+	}
+
+	if ss, ok := s.(*Sorting); ok {
+		return ss
+	}
+
+	protoSorting, ok := s.(Model)
+	if !ok {
+		panic("unsupported sorting type")
 	}
 
 	parsed := parseProtoMsg(protoSorting)
