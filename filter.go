@@ -12,11 +12,6 @@ type TimestampValue interface {
 	GetSeconds() int64
 }
 
-//type TimeRange struct {
-//	From TimestampValue
-//	To   TimestampValue
-//}
-
 // Basic filter types
 type StringValue interface{ GetValue() string }
 type Int64Value interface{ GetValue() int64 }
@@ -215,6 +210,12 @@ func (f *Filter) Gte(lval string, rval interface{}) *Filter {
 
 func (f *Filter) Lt(lval string, rval interface{}) *Filter {
 	f.addExpr(filterExpr{lval: lval, op: ltOp, rval: rval})
+	return f
+}
+
+func (f *Filter) InRange(lval string, from, to interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: gteOp, rval: from})
+	f.addExpr(filterExpr{lval: lval, op: ltOp, rval: to})
 	return f
 }
 

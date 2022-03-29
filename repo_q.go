@@ -15,12 +15,12 @@ type repoQ struct {
 	r   *Repo
 	ctx context.Context
 
-	query    string
-	alias    string
-	filter   *Filter
-	sortings Sortings
-	pager    Pager
-	joins    []join
+	query   string
+	alias   string
+	filter  *Filter
+	sorting Sorting
+	pager   Pager
+	joins   []join
 }
 
 type join struct {
@@ -43,8 +43,8 @@ func (q *repoQ) Where(f *Filter) *repoQ {
 	return q
 }
 
-func (q *repoQ) OrderBy(s Sortings) *repoQ {
-	q.sortings = s
+func (q *repoQ) OrderBy(s Sorting) *repoQ {
+	q.sorting = s
 	return q
 }
 
@@ -95,12 +95,12 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 		return nil, err
 	}
 
-	if q.sortings != nil {
-		wq += q.sortings.SortQuery()
+	if q.sorting != nil {
+		wq += sortQuery(q.sorting)
 	}
 
 	if q.pager != nil {
-		wq += PageQuery(q.pager)
+		wq += pageQuery(q.pager)
 	}
 
 	baseQuery := q.query

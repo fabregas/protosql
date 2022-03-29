@@ -23,7 +23,7 @@ func correctingPageSize(s uint32) uint32 {
 	return s
 }
 
-func PageQuery(p Pager) string {
+func pageQuery(p Pager) string {
 	pageSize := correctingPageSize(p.GetPageSize())
 	query := fmt.Sprintf(" LIMIT %d", pageSize)
 	if n := p.GetCurrentPage(); n > 0 {
