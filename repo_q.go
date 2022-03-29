@@ -50,6 +50,10 @@ func (q *repoQ) OrderBy(s interface{}) *repoQ {
 }
 
 func (q *repoQ) Paginate(p Pager) *repoQ {
+	if p == nil {
+		// default pagination for preventing full table fetch with 'bad customer request'
+		p = Page(0, 25)
+	}
 	q.pager = p
 	return q
 }
