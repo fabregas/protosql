@@ -13,7 +13,6 @@ package protosql
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -40,9 +39,6 @@ func newSorting(s interface{}) *Sorting {
 	parsed := parseProtoMsg(protoSorting)
 
 	for _, f := range parsed {
-		if f.val.Type().Kind() == reflect.Int32 && f.val.Int() == 0 {
-			continue
-		}
 		s, ok := f.val.Interface().(fmt.Stringer)
 		if !ok {
 			panic(fmt.Sprintf("sorting field %s is not stringer", f.name))
@@ -52,7 +48,8 @@ func newSorting(s interface{}) *Sorting {
 		switch strings.ToUpper(order) {
 		case "ASC", "DESC":
 		default:
-			panic(fmt.Sprintf("unknown sorted order '%s' for field %s", order, f.name))
+			// unknown sort order, just skip it
+			continue
 		}
 
 		return &Sorting{FieldName: f.name, Order: order}
