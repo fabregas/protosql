@@ -14,9 +14,9 @@ import (
 
 type Sorting interface {
 	GetFieldName() string
-	GetOrder() string
+	GetOrder() fmt.Stringer
 }
 
 func sortQuery(s Sorting) string {
-	return fmt.Sprintf(" ORDER BY %s %s", s.GetFieldName(), s.GetOrder())
+	return fmt.Sprintf(" ORDER BY %s %s", s.GetFieldName(), s.GetOrder().String())
 }
