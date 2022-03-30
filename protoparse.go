@@ -24,7 +24,7 @@ func parseProtoMsg(m Model) []parsedField {
 		v = v.Elem()
 	}
 
-	if v.IsZero() {
+	if !v.IsValid() {
 		return nil
 	}
 
