@@ -145,7 +145,7 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 		if v.GetSeconds() == 0 {
 			return "", nil, ignoreFilterErr
 		}
-		retList = append(retList, time.Unix(v.GetSeconds(), 0))
+		retList = append(retList, time.Unix(v.GetSeconds(), 0).UTC())
 
 	case protoreflect.Enum:
 		n := int32(v.Number())
