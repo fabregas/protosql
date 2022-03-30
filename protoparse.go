@@ -24,6 +24,10 @@ func parseProtoMsg(m Model) []parsedField {
 		v = v.Elem()
 	}
 
+	if v.IsZero() {
+		return nil
+	}
+
 	var r []parsedField
 
 	for i := 0; i < t.NumField(); i++ {
