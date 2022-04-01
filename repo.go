@@ -19,6 +19,9 @@ func NewRepo(db *sql.DB, tableName string, obj Model, logger Logger) *Repo {
 }
 
 func (r *Repo) Insert(ctx context.Context, obj Model) error {
+	tryUpdateTime(obj, "CreateTime")
+	tryUpdateTime(obj, "UpdateTime")
+
 	q, params := insertQ(r.table, obj)
 
 	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
@@ -27,6 +30,8 @@ func (r *Repo) Insert(ctx context.Context, obj Model) error {
 }
 
 func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
+	tryUpdateTime(obj, "UpdateTime")
+
 	q, params := updateQ(r.table, obj, "id")
 
 	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)

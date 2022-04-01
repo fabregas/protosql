@@ -3,6 +3,7 @@ package protosql
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"reflect"
 	"testing"
 	"time"
@@ -41,6 +42,25 @@ var testModel *TestModel = &TestModel{
 	Count:       30005000,
 }
 
+type gtTime struct {
+	exp time.Time
+}
+
+func timeGreaterThan(t time.Time) gtTime {
+	return gtTime{exp: t}
+}
+
+func (t gtTime) Match(v driver.Value) bool {
+	ct, ok := v.(time.Time)
+	if !ok {
+		return false
+	}
+	if ct.After(t.exp) {
+		return true
+	}
+	return false
+}
+
 func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	m := *testModel
 
@@ -50,8 +70,8 @@ func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		m.Website,
 		m.Description,
 		m.Status,
-		m.CreateTime.AsTime(),
-		m.UpdateTime.AsTime(),
+		timeGreaterThan(m.CreateTime.AsTime()),
+		timeGreaterThan(m.UpdateTime.AsTime()),
 		m.OnlineDuration.AsDuration(),
 		m.Count,
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
@@ -74,7 +94,7 @@ func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		m.Description,
 		m.Status,
 		m.CreateTime.AsTime(),
-		m.UpdateTime.AsTime(),
+		timeGreaterThan(m.UpdateTime.AsTime()),
 		m.OnlineDuration.AsDuration(),
 		m.Count,
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))

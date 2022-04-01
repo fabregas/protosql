@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Model interface {
@@ -106,4 +108,17 @@ func getNameFromTag(v string) string {
 		}
 	}
 	return ""
+}
+
+func tryUpdateTime(m Model, fieldName string) {
+	v := reflect.ValueOf(m)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	f := v.FieldByName(fieldName)
+	if f.IsValid() {
+		t := timestamppb.Now()
+		f.Set(reflect.ValueOf(t))
+	}
 }
