@@ -3,6 +3,7 @@ package protosql
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
@@ -175,6 +176,7 @@ func scanObj(s scanner, obj Model) error {
 	var dest []interface{}
 	for _, f := range m {
 		var v interface{}
+
 		switch f.val.Interface().(type) {
 		case timeIface:
 			t, ok := f.val.Addr().Interface().(**timestamppb.Timestamp)
@@ -189,7 +191,12 @@ func scanObj(s scanner, obj Model) error {
 			}
 			v = &durationScanner{d}
 		default:
-			v = f.val.Addr().Interface()
+			switch f.val.Kind() {
+			case reflect.Ptr:
+				v = &jsonScanner{f.val.Addr().Interface()}
+			default:
+				v = f.val.Addr().Interface()
+			}
 		}
 
 		dest = append(dest, v)
@@ -224,4 +231,22 @@ func (s *durationScanner) Scan(src interface{}) error {
 
 	*s.d = durationpb.New(time.Duration(v * 1000000)) //convert ms to ns
 	return nil
+}
+
+type jsonScanner struct {
+	dest interface{}
+}
+
+func (s *jsonScanner) Scan(src interface{}) error {
+	var raw []byte
+	switch v := src.(type) {
+	case string:
+		raw = []byte(v)
+	case []byte:
+		raw = v
+	default:
+		return fmt.Errorf("invalid value for json: %v", src)
+	}
+
+	return json.Unmarshal(raw, s.dest)
 }

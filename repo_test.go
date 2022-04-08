@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -40,6 +41,11 @@ var testModel *TestModel = &TestModel{
 	CreateTime:  timestamppb.Now(),
 	UpdateTime:  timestamppb.Now(),
 	Count:       30005000,
+	Nested: &NestedModel{
+		Num:    323,
+		Name:   "Nested obj",
+		Active: true,
+	},
 }
 
 type gtTime struct {
@@ -64,6 +70,7 @@ func (t gtTime) Match(v driver.Value) bool {
 func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	m := *testModel
 
+	nestedJson, _ := json.Marshal(m.Nested)
 	mock.ExpectExec("INSERT INTO xxx_table").WithArgs(
 		m.Id,
 		m.Name,
@@ -74,6 +81,7 @@ func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		timeGreaterThan(m.UpdateTime.AsTime()),
 		m.OnlineDuration.AsDuration(),
 		m.Count,
+		nestedJson,
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
@@ -87,6 +95,7 @@ func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	m := *testModel
 
+	nestedJson, _ := json.Marshal(m.Nested)
 	mock.ExpectExec("UPDATE xxx_table").WithArgs(
 		m.Id,
 		m.Name,
@@ -97,6 +106,7 @@ func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		timeGreaterThan(m.UpdateTime.AsTime()),
 		m.OnlineDuration.AsDuration(),
 		m.Count,
+		nestedJson,
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
@@ -111,9 +121,9 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	t0 := time.Now().Add(-time.Minute)
 	t1 := time.Now()
 	rows := sqlmock.NewRows(
-		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count"},
+		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested"},
 	).AddRow(
-		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334,
+		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334, `{"num": 123, "name": "some name", "active": true}`,
 	)
 
 	mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(22).WillReturnError(nil).WillReturnRows(rows)
@@ -134,6 +144,9 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	expectEq(t, ret.CreateTime.AsTime(), t0.UTC())
 	expectEq(t, ret.UpdateTime.AsTime(), t1.UTC())
 	expectEq(t, ret.Count, int64(334))
+	expectEq(t, ret.Nested.Num, int32(123))
+	expectEq(t, ret.Nested.Name, "some name")
+	expectEq(t, ret.Nested.Active, true)
 }
 
 func txTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
@@ -188,6 +201,12 @@ func (l dummyLogger) Errorf(format string, args ...interface{}) {}
 
 // --- model
 
+type NestedModel struct {
+	Num    int32  `protobuf:"varint,1,opt,name=num,proto3" json:"num,omitempty"`
+	Name   string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Active bool   `protobuf:"bytes,3,opt,name=active,proto3" json:"active,omitempty"`
+}
+
 type TestModel struct {
 	Id             int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
@@ -198,6 +217,7 @@ type TestModel struct {
 	UpdateTime     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
 	OnlineDuration *durationpb.Duration   `protobuf:"bytes,8,opt,name=online_duration,json=updateTime,proto3" json:"online_duration,omitempty"`
 	Count          int64                  `protobuf:"bytes,9,opt,name=count,json=count,proto3" json:"count,omitempty"`
+	Nested         *NestedModel           `protobuf:"bytes,10,opt,name=nested,json=nested,proto3" json:"nested,omitempty"`
 }
 
 func (*TestModel) Reset()        {}
