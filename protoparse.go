@@ -1,6 +1,8 @@
 package protosql
 
 import (
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -90,7 +92,7 @@ func toSqlParam(v reflect.Value) interface{} {
 	case reflect.Map:
 		panic("map")
 	case reflect.Ptr:
-		panic("ptr")
+		return toJson(v)
 	case reflect.String:
 		return v.String()
 	case reflect.Struct:
@@ -98,6 +100,15 @@ func toSqlParam(v reflect.Value) interface{} {
 	default:
 		panic("unexpected")
 	}
+}
+
+func toJson(v reflect.Value) interface{} {
+	b, err := json.Marshal(v.Interface())
+	if err != nil {
+		panic(fmt.Errorf("cant marshal json '%s': %s", v.Interface(), err))
+	}
+
+	return b
 }
 
 func getNameFromTag(v string) string {
