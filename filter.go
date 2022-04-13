@@ -260,6 +260,10 @@ func (f *Filter) NotEmptyStr(lval string) *Filter {
 }
 
 func (f *Filter) WhereQuery() (string, []interface{}, error) {
+	if f == nil {
+		return "", nil, nil
+	}
+
 	var (
 		whereList []string
 		whereStmt string
