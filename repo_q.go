@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/lib/pq"
 	"google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -194,6 +195,8 @@ func scanObj(s scanner, obj Model) error {
 			switch f.val.Kind() {
 			case reflect.Ptr:
 				v = &jsonScanner{f.val.Addr().Interface()}
+			case reflect.Array, reflect.Slice:
+				v = pq.Array(f.val.Addr().Interface())
 			default:
 				v = f.val.Addr().Interface()
 			}

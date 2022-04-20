@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/lib/pq"
 	"google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -46,6 +47,7 @@ var testModel *TestModel = &TestModel{
 		Name:   "Nested obj",
 		Active: true,
 	},
+	Tags: []string{"test", "model"},
 }
 
 type gtTime struct {
@@ -82,6 +84,7 @@ func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		m.OnlineDuration.AsDuration(),
 		m.Count,
 		nestedJson,
+		pq.Array(m.Tags),
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
@@ -107,6 +110,7 @@ func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		m.OnlineDuration.AsDuration(),
 		m.Count,
 		nestedJson,
+		pq.Array(m.Tags),
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
@@ -120,10 +124,11 @@ func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	t0 := time.Now().Add(-time.Minute)
 	t1 := time.Now()
+	tags := []string{"test", "model"}
 	rows := sqlmock.NewRows(
-		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested"},
+		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags"},
 	).AddRow(
-		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334, `{"num": 123, "name": "some name", "active": true}`,
+		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334, `{"num": 123, "name": "some name", "active": true}`, pq.Array(&tags),
 	)
 
 	mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(22).WillReturnError(nil).WillReturnRows(rows)
@@ -147,6 +152,7 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	expectEq(t, ret.Nested.Num, int32(123))
 	expectEq(t, ret.Nested.Name, "some name")
 	expectEq(t, ret.Nested.Active, true)
+	expectEq(t, ret.Tags, tags)
 }
 
 func txTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
@@ -218,6 +224,7 @@ type TestModel struct {
 	OnlineDuration *durationpb.Duration   `protobuf:"bytes,8,opt,name=online_duration,json=updateTime,proto3" json:"online_duration,omitempty"`
 	Count          int64                  `protobuf:"bytes,9,opt,name=count,json=count,proto3" json:"count,omitempty"`
 	Nested         *NestedModel           `protobuf:"bytes,10,opt,name=nested,json=nested,proto3" json:"nested,omitempty"`
+	Tags           []string               `protobuf:"bytes,11,opt,name=tags,json=tags,proto3" json:"tags,omitempty"`
 }
 
 func (*TestModel) Reset()        {}

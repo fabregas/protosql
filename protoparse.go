@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -88,9 +89,9 @@ func toSqlParam(v reflect.Value) interface{} {
 	case reflect.Float32, reflect.Float64:
 		return v.Float()
 	case reflect.Array, reflect.Slice:
-		panic("array")
+		return pq.Array(v.Interface())
 	case reflect.Map:
-		panic("map")
+		return toJson(v)
 	case reflect.Ptr:
 		return toJson(v)
 	case reflect.String:
