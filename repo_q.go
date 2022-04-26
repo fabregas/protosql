@@ -19,6 +19,7 @@ type repoQ struct {
 
 	query   string
 	alias   string
+	lock    bool
 	filter  *Filter
 	sorting interface{}
 	pager   Pager
@@ -57,6 +58,11 @@ func (q *repoQ) Paginate(p Pager) *repoQ {
 		p = Page(0, 25)
 	}
 	q.pager = p
+	return q
+}
+
+func (q *repoQ) Lock() *repoQ {
+	q.lock = true
 	return q
 }
 
@@ -117,6 +123,10 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 
 	for _, j := range q.joins {
 		baseQuery += j.String()
+	}
+
+	if q.lock {
+		wq += " FOR UPDATE"
 	}
 
 	q.r.logger.Debugf("QUERY: %s, ARGS: %+v", baseQuery+wq, args)
