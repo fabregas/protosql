@@ -29,6 +29,26 @@ func (r *Repo) Insert(ctx context.Context, obj Model) error {
 	return err
 }
 
+func (r *Repo) InsertDuplicateIgnore(ctx context.Context, obj Model) (bool, error) {
+	tryUpdateTime(obj, "CreateTime")
+	tryUpdateTime(obj, "UpdateTime")
+
+	q, params := insertQ(r.table, obj)
+
+	q += " ON CONFLICT(id) DO NOTHING"
+
+	res, err := r.getDB(ctx).ExecContext(ctx, q, params...)
+
+	ra, _ := res.RowsAffected()
+
+	return ra > 0, err
+}
+
+func (r *Repo) Exec(ctx context.Context, q string, params ...interface{}) error {
+	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
+	return err
+}
+
 func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
 	tryUpdateTime(obj, "UpdateTime")
 
