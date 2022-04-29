@@ -38,6 +38,9 @@ func (r *Repo) InsertDuplicateIgnore(ctx context.Context, obj Model) (bool, erro
 	q += " ON CONFLICT(id) DO NOTHING"
 
 	res, err := r.getDB(ctx).ExecContext(ctx, q, params...)
+	if err != nil {
+		return false, err
+	}
 
 	ra, _ := res.RowsAffected()
 
