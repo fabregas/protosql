@@ -2,26 +2,29 @@ package protosql
 
 import (
 	"context"
+	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/pashagolub/pgxmock"
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/lib/pq"
 	"google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type dbTestFunc func(t *testing.T, mock pgxmock.PgxConnIface)
+type dbTestFunc func(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock)
 
 func withDBMock(t *testing.T, f dbTestFunc) {
-	mock, err := pgxmock.NewConn()
+	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer mock.Close(context.Background())
+	defer db.Close()
 
-	f(t, mock)
+	f(t, db, mock)
 }
 
 func wrapTest(f dbTestFunc) func(t *testing.T) {
@@ -55,7 +58,7 @@ func timeGreaterThan(t time.Time) gtTime {
 	return gtTime{exp: t}
 }
 
-func (t gtTime) Match(v interface{}) bool {
+func (t gtTime) Match(v driver.Value) bool {
 	ct, ok := v.(time.Time)
 	if !ok {
 		return false
@@ -66,102 +69,101 @@ func (t gtTime) Match(v interface{}) bool {
 	return false
 }
 
-func insertTest(t *testing.T, mock pgxmock.PgxConnIface) {
+func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	m := *testModel
 
 	nestedJson, _ := json.Marshal(m.Nested)
 	mock.ExpectExec("INSERT INTO xxx_table").WithArgs(
-		int64(m.Id),
+		m.Id,
 		m.Name,
 		m.Website,
 		m.Description,
-		int64(m.Status),
+		m.Status,
 		timeGreaterThan(m.CreateTime.AsTime()),
 		timeGreaterThan(m.UpdateTime.AsTime()),
-		int64(m.OnlineDuration.AsDuration()),
+		m.OnlineDuration.AsDuration(),
 		m.Count,
 		nestedJson,
-		m.Tags,
-	).WillReturnError(nil).WillReturnResult(pgxmock.NewResult("INSERT", 1))
+		pq.Array(m.Tags),
+	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
-	r := NewRepo(mock, "xxx_table", &TestModel{}, dummyLogger{})
+	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
 	err := r.Insert(context.Background(), &m)
+
 	if err != nil {
 		t.Errorf("Insert() failed: %s", err)
 	}
 }
 
-func updateTest(t *testing.T, mock pgxmock.PgxConnIface) {
+func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	m := *testModel
 
 	nestedJson, _ := json.Marshal(m.Nested)
 	mock.ExpectExec("UPDATE xxx_table").WithArgs(
-		int64(m.Id),
+		m.Id,
 		m.Name,
 		m.Website,
 		m.Description,
-		int64(m.Status),
+		m.Status,
 		m.CreateTime.AsTime(),
 		timeGreaterThan(m.UpdateTime.AsTime()),
-		int64(m.OnlineDuration.AsDuration()),
+		m.OnlineDuration.AsDuration(),
 		m.Count,
 		nestedJson,
-		m.Tags,
-	).WillReturnError(nil).WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+		pq.Array(m.Tags),
+	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
-	r := NewRepo(mock, "xxx_table", &TestModel{}, dummyLogger{})
+	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
 	err := r.UpdateByID(context.Background(), &m)
+
 	if err != nil {
 		t.Errorf("UpdateByID() failed: %s", err)
 	}
 }
 
-func getTest(t *testing.T, mock pgxmock.PgxConnIface) {
-	// FIXME bug in pgxmock (rows.go 88)
+func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
+	t0 := time.Now().Add(-time.Minute)
+	t1 := time.Now()
+	tags := []string{"test", "model"}
+	rows := sqlmock.NewRows(
+		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags"},
+	).AddRow(
+		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334, `{"num": 123, "name": "some name", "active": true}`, pq.Array(&tags),
+	)
 
-	/*
-		t0 := time.Now().Add(-time.Minute)
-		t1 := time.Now()
-		tags := []string{"test", "model"}
-		rows := pgxmock.NewRows(
-			[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags"},
-		).AddRow(
-			int32(22), "test", "test.com", "some descr", ModelStatus_STATUS_ACTIVE, t0, t1, 10000, 334, `{"num": 123, "name": "some name", "active": true}`, tags,
-		)
+	mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(22).WillReturnError(nil).WillReturnRows(rows)
 
-		mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(int32(22)).WillReturnError(nil).WillReturnRows(rows)
+	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
+	ret := TestModel{}
+	err := r.FindByID(context.Background(), 22).FetchOne(&ret)
 
-		r := NewRepo(mock, "xxx_table", &TestModel{}, dummyLogger{})
-		ret := TestModel{}
-		err := r.FindByID(context.Background(), int32(22)).FetchOne(&ret)
-		if err != nil {
-			t.Fatalf("FindByID() failed: %s", err)
-		}
+	if err != nil {
+		t.Fatalf("FindByID() failed: %s", err)
+	}
 
-		expectEq(t, ret.Id, int32(22))
-		expectEq(t, ret.Name, "test")
-		expectEq(t, ret.Website, "test.com")
-		expectEq(t, ret.Description, "some descr")
-		expectEq(t, ret.Status, ModelStatus_STATUS_INITIAL)
-		expectEq(t, ret.CreateTime.AsTime(), t0.UTC())
-		expectEq(t, ret.UpdateTime.AsTime(), t1.UTC())
-		expectEq(t, ret.Count, int64(334))
-		expectEq(t, ret.Nested.Num, int32(123))
-		expectEq(t, ret.Nested.Name, "some name")
-		expectEq(t, ret.Nested.Active, true)
-		expectEq(t, ret.Tags, tags)
-	*/
+	expectEq(t, ret.Id, int32(22))
+	expectEq(t, ret.Name, "test")
+	expectEq(t, ret.Website, "test.com")
+	expectEq(t, ret.Description, "some descr")
+	expectEq(t, ret.Status, ModelStatus_STATUS_INITIAL)
+	expectEq(t, ret.CreateTime.AsTime(), t0.UTC())
+	expectEq(t, ret.UpdateTime.AsTime(), t1.UTC())
+	expectEq(t, ret.Count, int64(334))
+	expectEq(t, ret.Nested.Num, int32(123))
+	expectEq(t, ret.Nested.Name, "some name")
+	expectEq(t, ret.Nested.Active, true)
+	expectEq(t, ret.Tags, tags)
 }
 
-func txTest(t *testing.T, mock pgxmock.PgxConnIface) {
+func txTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	m := *testModel
 
 	mock.ExpectBegin()
-	mock.ExpectExec("INSERT INTO xxx_table").WillReturnResult(pgxmock.NewResult("INSERT", 1))
-	mock.ExpectExec("UPDATE xxx_table").WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+	mock.ExpectExec("INSERT INTO xxx_table").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("UPDATE xxx_table").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
-	r := NewRepo(mock, "xxx_table", &TestModel{}, dummyLogger{})
+	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
 
 	err := r.Transaction(context.Background(), func(ctx context.Context) error {
 		err := r.Insert(ctx, &m)
@@ -176,6 +178,7 @@ func txTest(t *testing.T, mock pgxmock.PgxConnIface) {
 
 		return nil
 	})
+
 	if err != nil {
 		t.Errorf("Transaction() failed: %s", err)
 	}
