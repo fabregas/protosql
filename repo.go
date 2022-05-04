@@ -2,19 +2,28 @@ package protosql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
+
+	"github.com/jackc/pgconn"
+	pgx "github.com/jackc/pgx/v4"
 )
 
+type DB interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+
+	Exec(ctx context.Context, sql string, arguments ...interface{}) (commandTag pgconn.CommandTag, err error)
+	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
+}
+
 type Repo struct {
-	db     *sql.DB
+	db     DB
 	table  string
 	fields []string
 	logger Logger
 }
 
-func NewRepo(db *sql.DB, tableName string, obj Model, logger Logger) *Repo {
+func NewRepo(db DB, tableName string, obj Model, logger Logger) *Repo {
 	return &Repo{table: tableName, db: db, fields: objFields(obj), logger: logger}
 }
 
@@ -24,7 +33,7 @@ func (r *Repo) Insert(ctx context.Context, obj Model) error {
 
 	q, params := insertQ(r.table, obj)
 
-	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
+	_, err := r.getDB(ctx).Exec(ctx, q, params...)
 
 	return err
 }
@@ -37,18 +46,16 @@ func (r *Repo) InsertDuplicateIgnore(ctx context.Context, obj Model) (bool, erro
 
 	q += " ON CONFLICT(id) DO NOTHING"
 
-	res, err := r.getDB(ctx).ExecContext(ctx, q, params...)
+	res, err := r.getDB(ctx).Exec(ctx, q, params...)
 	if err != nil {
 		return false, err
 	}
 
-	ra, _ := res.RowsAffected()
-
-	return ra > 0, err
+	return res.RowsAffected() > 0, err
 }
 
 func (r *Repo) Exec(ctx context.Context, q string, params ...interface{}) error {
-	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
+	_, err := r.getDB(ctx).Exec(ctx, q, params...)
 	return err
 }
 
@@ -57,7 +64,7 @@ func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
 
 	q, params := updateQ(r.table, obj, "id")
 
-	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
+	_, err := r.getDB(ctx).Exec(ctx, q, params...)
 
 	return err
 }
@@ -149,18 +156,13 @@ func objFields(obj Model) []string {
 	return fields
 }
 
-type dbExec interface {
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-}
-
-func (r *Repo) getDB(ctx context.Context) dbExec {
+func (r *Repo) getDB(ctx context.Context) DB {
 	v := ctx.Value("_dbtx_")
 	if v == nil {
 		return r.db
 	}
 
-	tx, ok := v.(*sql.Tx)
+	tx, ok := v.(pgx.Tx)
 	if !ok {
 		panic("invalid TX type ?!")
 	}
@@ -169,7 +171,7 @@ func (r *Repo) getDB(ctx context.Context) dbExec {
 }
 
 func (r *Repo) Transaction(ctx context.Context, txFunc func(context.Context) error) error {
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -179,12 +181,12 @@ func (r *Repo) Transaction(ctx context.Context, txFunc func(context.Context) err
 	err = txFunc(ctx)
 
 	if err != nil {
-		if rerr := tx.Rollback(); rerr != nil {
+		if rerr := tx.Rollback(ctx); rerr != nil {
 			r.logger.Errorf("rollback tx failed: %s", rerr)
 		}
 
 		return err
 	}
 
-	return tx.Commit()
+	return tx.Commit(ctx)
 }
