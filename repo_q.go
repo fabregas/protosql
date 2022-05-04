@@ -2,12 +2,13 @@ package protosql
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
 
-	pgx "github.com/jackc/pgx/v4"
+	"github.com/lib/pq"
 	"google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -101,7 +102,7 @@ func (q *repoQ) Fetch(o interface{}) error {
 	return scanObjects(rows, o)
 }
 
-func (q *repoQ) exec() (pgx.Rows, error) {
+func (q *repoQ) exec() (*sql.Rows, error) {
 	wq, args, err := q.filter.WhereQuery()
 	if err != nil {
 		return nil, err
@@ -130,7 +131,7 @@ func (q *repoQ) exec() (pgx.Rows, error) {
 
 	q.r.logger.Debugf("QUERY: %s, ARGS: %+v", baseQuery+wq, args)
 
-	rows, err := q.r.getDB(q.ctx).Query(q.ctx, baseQuery+wq, args...)
+	rows, err := q.r.getDB(q.ctx).QueryContext(q.ctx, baseQuery+wq, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +139,7 @@ func (q *repoQ) exec() (pgx.Rows, error) {
 	return rows, nil
 }
 
-func scanObjects(rows pgx.Rows, o interface{}) error {
+func scanObjects(rows *sql.Rows, o interface{}) error {
 	defer rows.Close()
 
 	if reflect.TypeOf(o).Kind() != reflect.Ptr {
@@ -205,7 +206,7 @@ func scanObj(s scanner, obj Model) error {
 			case reflect.Ptr:
 				v = &jsonScanner{f.val.Addr().Interface()}
 			case reflect.Array, reflect.Slice:
-				v = f.val.Addr().Interface()
+				v = pq.Array(f.val.Addr().Interface())
 			default:
 				v = f.val.Addr().Interface()
 			}
@@ -241,7 +242,7 @@ func (s *durationScanner) Scan(src interface{}) error {
 		return fmt.Errorf("invalid value for duration: %v", src)
 	}
 
-	*s.d = durationpb.New(time.Duration(v * 1000000)) // convert ms to ns
+	*s.d = durationpb.New(time.Duration(v * 1000000)) //convert ms to ns
 	return nil
 }
 
