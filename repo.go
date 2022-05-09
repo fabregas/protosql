@@ -27,6 +27,8 @@ func (r *Repo) Insert(ctx context.Context, obj Model) error {
 
 	q, params := insertQ(r.table, obj)
 
+	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
+
 	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
 
 	return err
@@ -41,6 +43,8 @@ func (r *Repo) InsertDuplicateIgnore(ctx context.Context, obj Model) (bool, erro
 
 	q += " ON CONFLICT(id) DO NOTHING"
 
+	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
+
 	res, err := r.getDB(ctx).ExecContext(ctx, q, params...)
 	if err != nil {
 		return false, err
@@ -52,6 +56,8 @@ func (r *Repo) InsertDuplicateIgnore(ctx context.Context, obj Model) (bool, erro
 }
 
 func (r *Repo) Exec(ctx context.Context, q string, params ...interface{}) error {
+	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
+
 	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
 	return err
 }
@@ -61,7 +67,24 @@ func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
 
 	q, params := updateQ(r.table, obj, "id")
 
+	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
+
 	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
+
+	return err
+}
+
+func (r *Repo) Delete(ctx context.Context, f *Filter) error {
+	wq, args, err := f.WhereQuery()
+	if err != nil {
+		return err
+	}
+
+	q := fmt.Sprintf("DELETE FROM %s%s", r.table, wq)
+
+	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, args)
+
+	_, err = r.getDB(ctx).ExecContext(ctx, q, args...)
 
 	return err
 }
