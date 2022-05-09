@@ -122,7 +122,7 @@ func getNameFromTag(v string) string {
 	return ""
 }
 
-func tryUpdateTime(m Model, fieldName string) {
+func trySetTime(m Model, fieldName string, ts *timestamppb.Timestamp) {
 	v := reflect.ValueOf(m)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -130,7 +130,6 @@ func tryUpdateTime(m Model, fieldName string) {
 
 	f := v.FieldByName(fieldName)
 	if f.IsValid() {
-		t := timestamppb.Now()
-		f.Set(reflect.ValueOf(t))
+		f.Set(reflect.ValueOf(ts))
 	}
 }

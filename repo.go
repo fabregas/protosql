@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Repo struct {
@@ -19,8 +21,9 @@ func NewRepo(db *sql.DB, tableName string, obj Model, logger Logger) *Repo {
 }
 
 func (r *Repo) Insert(ctx context.Context, obj Model) error {
-	tryUpdateTime(obj, "CreateTime")
-	tryUpdateTime(obj, "UpdateTime")
+	ts := timestamppb.Now()
+	trySetTime(obj, "CreateTime", ts)
+	trySetTime(obj, "UpdateTime", ts)
 
 	q, params := insertQ(r.table, obj)
 
@@ -30,8 +33,9 @@ func (r *Repo) Insert(ctx context.Context, obj Model) error {
 }
 
 func (r *Repo) InsertDuplicateIgnore(ctx context.Context, obj Model) (bool, error) {
-	tryUpdateTime(obj, "CreateTime")
-	tryUpdateTime(obj, "UpdateTime")
+	ts := timestamppb.Now()
+	trySetTime(obj, "CreateTime", ts)
+	trySetTime(obj, "UpdateTime", ts)
 
 	q, params := insertQ(r.table, obj)
 
@@ -53,7 +57,7 @@ func (r *Repo) Exec(ctx context.Context, q string, params ...interface{}) error 
 }
 
 func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
-	tryUpdateTime(obj, "UpdateTime")
+	trySetTime(obj, "UpdateTime", timestamppb.Now())
 
 	q, params := updateQ(r.table, obj, "id")
 
