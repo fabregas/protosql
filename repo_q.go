@@ -209,7 +209,12 @@ func scanObj(s scanner, obj Model) error {
 				if f.val.Type().Elem().Kind() == reflect.Ptr {
 					v = &jsonScanner{f.val.Addr().Interface()}
 				} else {
-					v = pq.Array(f.val.Addr().Interface())
+					switch f.val.Interface().(type) {
+					case []byte:
+						v = f.val.Addr().Interface()
+					default:
+						v = pq.Array(f.val.Addr().Interface())
+					}
 				}
 			default:
 				v = f.val.Addr().Interface()

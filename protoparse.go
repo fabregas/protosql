@@ -92,7 +92,12 @@ func toSqlParam(v reflect.Value) interface{} {
 		if v.Type().Elem().Kind() == reflect.Ptr {
 			return toJson(v)
 		}
-		return pq.Array(v.Interface())
+		switch v.Interface().(type) {
+		case []byte:
+			return v.Interface()
+		default:
+			return pq.Array(v.Interface())
+		}
 	case reflect.Map:
 		return toJson(v)
 	case reflect.Ptr:
