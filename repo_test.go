@@ -54,6 +54,7 @@ var testModel *TestModel = &TestModel{
 		},
 	},
 	Tags: []string{"test", "model"},
+	Blob: []byte(`123`),
 }
 
 type gtTime struct {
@@ -93,6 +94,7 @@ func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		nestedJson,
 		pq.Array(m.Tags),
 		nestedListJson,
+		m.Blob,
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
@@ -120,6 +122,7 @@ func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		nestedJson,
 		pq.Array(m.Tags),
 		nestedListJson,
+		m.Blob,
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
@@ -134,10 +137,10 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	t1 := time.Now()
 	tags := []string{"test", "model"}
 	rows := sqlmock.NewRows(
-		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags", "nested_list"},
+		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags", "nested_list", "blob"},
 	).AddRow(
 		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334, `{"num": 123, "name": "some name", "active": true}`, pq.Array(&tags),
-		`[{"num": 12, "name": "Item in nested list", "active": false}]`,
+		`[{"num": 12, "name": "Item in nested list", "active": false}]`, []byte(`123`),
 	)
 
 	mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(22).WillReturnError(nil).WillReturnRows(rows)
@@ -233,6 +236,7 @@ type TestModel struct {
 	Nested         *NestedModel           `protobuf:"bytes,10,opt,name=nested,json=nested,proto3" json:"nested,omitempty"`
 	Tags           []string               `protobuf:"bytes,11,opt,name=tags,json=tags,proto3" json:"tags,omitempty"`
 	NestedList     []*NestedModel         `protobuf:"bytes,12,opt,name=nested_list,json=nested_list,proto3" json:"nested_list,omitempty"`
+	Blob           []byte                 `protobuf:"bytes,13,opt,name=blob,json=blob,proto3" json:"blob,omitempty"`
 }
 
 func (*TestModel) Reset()        {}
