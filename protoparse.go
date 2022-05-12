@@ -89,6 +89,9 @@ func toSqlParam(v reflect.Value) interface{} {
 	case reflect.Float32, reflect.Float64:
 		return v.Float()
 	case reflect.Array, reflect.Slice:
+		if v.Type().Elem().Kind() == reflect.Ptr {
+			return toJson(v)
+		}
 		return pq.Array(v.Interface())
 	case reflect.Map:
 		return toJson(v)

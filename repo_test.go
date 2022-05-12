@@ -47,6 +47,12 @@ var testModel *TestModel = &TestModel{
 		Name:   "Nested obj",
 		Active: true,
 	},
+	NestedList: []*NestedModel{
+		{
+			Num:  12,
+			Name: "Item in nested list",
+		},
+	},
 	Tags: []string{"test", "model"},
 }
 
@@ -73,6 +79,7 @@ func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	m := *testModel
 
 	nestedJson, _ := json.Marshal(m.Nested)
+	nestedListJson, _ := json.Marshal(m.NestedList)
 	mock.ExpectExec("INSERT INTO xxx_table").WithArgs(
 		m.Id,
 		m.Name,
@@ -85,11 +92,11 @@ func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		m.Count,
 		nestedJson,
 		pq.Array(m.Tags),
+		nestedListJson,
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
 	err := r.Insert(context.Background(), &m)
-
 	if err != nil {
 		t.Errorf("Insert() failed: %s", err)
 	}
@@ -99,6 +106,7 @@ func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	m := *testModel
 
 	nestedJson, _ := json.Marshal(m.Nested)
+	nestedListJson, _ := json.Marshal(m.NestedList)
 	mock.ExpectExec("UPDATE xxx_table").WithArgs(
 		m.Id,
 		m.Name,
@@ -111,11 +119,11 @@ func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		m.Count,
 		nestedJson,
 		pq.Array(m.Tags),
+		nestedListJson,
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
 	err := r.UpdateByID(context.Background(), &m)
-
 	if err != nil {
 		t.Errorf("UpdateByID() failed: %s", err)
 	}
@@ -126,9 +134,10 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	t1 := time.Now()
 	tags := []string{"test", "model"}
 	rows := sqlmock.NewRows(
-		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags"},
+		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags", "nested_list"},
 	).AddRow(
 		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334, `{"num": 123, "name": "some name", "active": true}`, pq.Array(&tags),
+		`[{"num": 12, "name": "Item in nested list", "active": false}]`,
 	)
 
 	mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(22).WillReturnError(nil).WillReturnRows(rows)
@@ -136,7 +145,6 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
 	ret := TestModel{}
 	err := r.FindByID(context.Background(), 22).FetchOne(&ret)
-
 	if err != nil {
 		t.Fatalf("FindByID() failed: %s", err)
 	}
@@ -178,7 +186,6 @@ func txTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 
 		return nil
 	})
-
 	if err != nil {
 		t.Errorf("Transaction() failed: %s", err)
 	}
@@ -225,6 +232,7 @@ type TestModel struct {
 	Count          int64                  `protobuf:"bytes,9,opt,name=count,json=count,proto3" json:"count,omitempty"`
 	Nested         *NestedModel           `protobuf:"bytes,10,opt,name=nested,json=nested,proto3" json:"nested,omitempty"`
 	Tags           []string               `protobuf:"bytes,11,opt,name=tags,json=tags,proto3" json:"tags,omitempty"`
+	NestedList     []*NestedModel         `protobuf:"bytes,12,opt,name=nested_list,json=nested_list,proto3" json:"nested_list,omitempty"`
 }
 
 func (*TestModel) Reset()        {}

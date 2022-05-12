@@ -206,7 +206,11 @@ func scanObj(s scanner, obj Model) error {
 			case reflect.Ptr:
 				v = &jsonScanner{f.val.Addr().Interface()}
 			case reflect.Array, reflect.Slice:
-				v = pq.Array(f.val.Addr().Interface())
+				if f.val.Type().Elem().Kind() == reflect.Ptr {
+					v = &jsonScanner{f.val.Addr().Interface()}
+				} else {
+					v = pq.Array(f.val.Addr().Interface())
+				}
 			default:
 				v = f.val.Addr().Interface()
 			}
@@ -242,7 +246,7 @@ func (s *durationScanner) Scan(src interface{}) error {
 		return fmt.Errorf("invalid value for duration: %v", src)
 	}
 
-	*s.d = durationpb.New(time.Duration(v * 1000000)) //convert ms to ns
+	*s.d = durationpb.New(time.Duration(v * 1000000)) // convert ms to ns
 	return nil
 }
 
