@@ -16,10 +16,13 @@ type TimestampValue interface {
 
 // Basic filter types
 type StringValue interface{ GetValue() string }
-type Int64Value interface{ GetValue() int64 }
-type Int32Value interface{ GetValue() int32 }
-type IntValue interface{ GetValue() int }
-type BoolValue interface{ GetValue() bool }
+
+type (
+	Int64Value interface{ GetValue() int64 }
+	Int32Value interface{ GetValue() int32 }
+	IntValue   interface{ GetValue() int }
+	BoolValue  interface{ GetValue() bool }
+)
 
 type operator int
 
@@ -68,9 +71,7 @@ func (o operator) value() (s string) {
 	return
 }
 
-var (
-	ignoreFilterErr = errors.New("filter no need")
-)
+var ignoreFilterErr = errors.New("filter no need")
 
 type filterExpr struct {
 	lval string
@@ -141,6 +142,8 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 			}
 			retList = append(retList, sv)
 		}
+	case time.Time:
+		retList = append(retList, v)
 	case TimestampValue:
 		if v.GetSeconds() == 0 {
 			return "", nil, ignoreFilterErr
