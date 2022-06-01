@@ -203,7 +203,7 @@ func scanObj(s scanner, obj Model) error {
 			v = &durationScanner{d}
 		default:
 			switch f.val.Kind() {
-			case reflect.Ptr:
+			case reflect.Ptr, reflect.Map:
 				v = &jsonScanner{f.val.Addr().Interface()}
 			case reflect.Array, reflect.Slice:
 				if f.val.Type().Elem().Kind() == reflect.Ptr {
