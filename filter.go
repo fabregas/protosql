@@ -274,7 +274,7 @@ func (f *Filter) Or(orFilter *Filter) *Filter {
 
 func (f *Filter) WhereQuery() (string, []interface{}, error) {
 	stmt, args, err := f.toQuery(1, "AND")
-	if err != nil {
+	if err != nil || stmt == "" {
 		return stmt, args, err
 	}
 
