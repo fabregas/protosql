@@ -42,6 +42,8 @@ const (
 	notEmptyStrOp
 
 	arrContainOp
+
+	orOp
 )
 
 func (o operator) value() (s string) {
@@ -93,6 +95,9 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 	}
 
 	switch f.op {
+	case orOp:
+		stmt, args, err := f.rval.(*Filter).toQuery(gidx, "OR")
+		return fmt.Sprintf("(%s)", stmt), args, err
 	case emptyStrOp, notEmptyStrOp:
 		return fmt.Sprintf("%s %s ''", f.lval, f.op.value()), nil, nil
 	}
@@ -262,7 +267,20 @@ func (f *Filter) NotEmptyStr(lval string) *Filter {
 	return f
 }
 
+func (f *Filter) Or(orFilter *Filter) *Filter {
+	f.addExpr(filterExpr{op: orOp, rval: orFilter})
+	return f
+}
+
 func (f *Filter) WhereQuery() (string, []interface{}, error) {
+	stmt, args, err := f.toQuery(1, "AND")
+	if err != nil {
+		return stmt, args, err
+	}
+
+	return " WHERE " + stmt, args, nil
+}
+func (f *Filter) toQuery(startIdx int, op string) (string, []interface{}, error) {
 	if f == nil {
 		return "", nil, nil
 	}
@@ -273,7 +291,7 @@ func (f *Filter) WhereQuery() (string, []interface{}, error) {
 		argsList  []interface{}
 	)
 
-	i := 1
+	i := startIdx
 	for _, e := range f.exprList {
 		v, l, err := e.format(i)
 		if err == ignoreFilterErr {
@@ -288,7 +306,7 @@ func (f *Filter) WhereQuery() (string, []interface{}, error) {
 	}
 
 	if len(whereList) > 0 {
-		whereStmt = fmt.Sprintf(" WHERE %s", strings.Join(whereList, " AND "))
+		whereStmt = strings.Join(whereList, fmt.Sprintf(" %s ", op))
 	}
 
 	return whereStmt, argsList, nil
