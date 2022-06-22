@@ -278,7 +278,7 @@ func (f *Filter) WhereQuery() (string, []interface{}, error) {
 		return stmt, args, err
 	}
 
-	return " WHERE " + stmt, args, nil
+	return fmt.Sprintf(" WHERE %s ", stmt), args, nil
 }
 func (f *Filter) toQuery(startIdx int, op string) (string, []interface{}, error) {
 	if f == nil {
