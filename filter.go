@@ -142,9 +142,6 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 		}
 	case []string:
 		for _, sv := range v {
-			if sv == "" {
-				continue
-			}
 			retList = append(retList, sv)
 		}
 	case time.Time:
