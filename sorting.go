@@ -21,6 +21,14 @@ type Sorting struct {
 	Order     string
 }
 
+func Asc(field string) *Sorting {
+	return &Sorting{FieldName: field, Order: "ASC"}
+}
+
+func Desc(field string) *Sorting {
+	return &Sorting{FieldName: field, Order: "DESC"}
+}
+
 // returns first defined sorting from proto message
 func newSorting(s interface{}) *Sorting {
 	if s == nil {
