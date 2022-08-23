@@ -24,6 +24,11 @@ type (
 	BoolValue  interface{ GetValue() bool }
 )
 
+type sval string
+
+func (s sval) GetValue() string { return string(s) }
+func WrapString(s string) sval  { return sval(s) }
+
 type operator int
 
 const (
