@@ -118,7 +118,7 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 
 	baseQuery := q.query
 	if baseQuery == "" {
-		baseQuery = q.r.selectQuery(q.alias)
+		baseQuery = q.r.selectQuery(q.alias, nil)
 	}
 
 	for _, j := range q.joins {

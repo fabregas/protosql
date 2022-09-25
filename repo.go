@@ -102,11 +102,15 @@ func (r *Repo) SelectCustom(ctx context.Context, query string) *repoQ {
 	return &repoQ{r: r, query: query, ctx: ctx}
 }
 
-func (r *Repo) SelectQuery() string {
-	return r.selectQuery("")
+func (r *Repo) SelectFields(ctx context.Context, fields ...string) *repoQ {
+	return &repoQ{r: r, query: r.selectQuery("", fields), ctx: ctx}
 }
 
-func (r *Repo) selectQuery(alias string) string {
+func (r *Repo) SelectQuery() string {
+	return r.selectQuery("", nil)
+}
+
+func (r *Repo) selectQuery(alias string, reqFields []string) string {
 	var fields []string
 	al := alias
 	if al == "" {
@@ -117,7 +121,11 @@ func (r *Repo) selectQuery(alias string) string {
 		table += " AS " + alias
 	}
 
-	for _, f := range r.fields {
+	if reqFields == nil {
+		reqFields = r.fields
+	}
+
+	for _, f := range reqFields {
 		fields = append(fields, fmt.Sprintf("%s.%s", al, f))
 	}
 
