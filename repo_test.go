@@ -54,8 +54,9 @@ var testModel *TestModel = &TestModel{
 			Name: "Item in nested list",
 		},
 	},
-	Tags: []string{"test", "model"},
-	Blob: []byte(`123`),
+	Tags:        []string{"test", "model"},
+	Blob:        []byte(`123`),
+	OldStatuses: []TestModelStatus{ModelStatus_STATUS_INITIAL, ModelStatus_STATUS_ACTIVE},
 }
 
 type gtTime struct {
@@ -96,6 +97,7 @@ func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		pq.Array(m.Tags),
 		nestedListJson,
 		m.Blob,
+		pq.Array(m.OldStatuses),
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
@@ -124,6 +126,7 @@ func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		pq.Array(m.Tags),
 		nestedListJson,
 		m.Blob,
+		pq.Array(m.OldStatuses),
 	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
@@ -138,10 +141,10 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	t1 := time.Now()
 	tags := []string{"test", "model"}
 	rows := sqlmock.NewRows(
-		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags", "nested_list", "blob"},
+		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags", "nested_list", "blob", "old_statuses"},
 	).AddRow(
 		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334, `{"num": 123, "name": "some name", "active": true}`, pq.Array(&tags),
-		`[{"num": 12, "name": "Item in nested list", "active": false}]`, []byte(`123`),
+		`[{"num": 12, "name": "Item in nested list", "active": false}]`, []byte(`123`), pq.Array(testModel.OldStatuses),
 	)
 
 	mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(22).WillReturnError(nil).WillReturnRows(rows)
@@ -165,6 +168,7 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	expectEq(t, ret.Nested.Name, "some name")
 	expectEq(t, ret.Nested.Active, true)
 	expectEq(t, ret.Tags, tags)
+	expectEq(t, ret.OldStatuses, testModel.OldStatuses)
 }
 
 func filterTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
@@ -172,10 +176,10 @@ func filterTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	t1 := time.Now()
 	tags := []string{"test", "model"}
 	rows := sqlmock.NewRows(
-		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags", "nested_list", "blob"},
+		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags", "nested_list", "blob", "old_statuses"},
 	).AddRow(
 		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334, `{"num": 123, "name": "some name", "active": true}`, pq.Array(&tags),
-		`[{"num": 12, "name": "Item in nested list", "active": false}]`, []byte(`123`),
+		`[{"num": 12, "name": "Item in nested list", "active": false}]`, []byte(`123`), pq.Array(testModel.OldStatuses),
 	)
 
 	mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(22, 1, "ololo", 32).WillReturnError(nil).WillReturnRows(rows)
@@ -204,6 +208,7 @@ func filterTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	expectEq(t, ret.Nested.Name, "some name")
 	expectEq(t, ret.Nested.Active, true)
 	expectEq(t, ret.Tags, tags)
+	expectEq(t, ret.OldStatuses, testModel.OldStatuses)
 }
 
 func txTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
@@ -278,6 +283,7 @@ type TestModel struct {
 	Tags           []string               `protobuf:"bytes,11,opt,name=tags,json=tags,proto3" json:"tags,omitempty"`
 	NestedList     []*NestedModel         `protobuf:"bytes,12,opt,name=nested_list,json=nested_list,proto3" json:"nested_list,omitempty"`
 	Blob           []byte                 `protobuf:"bytes,13,opt,name=blob,json=blob,proto3" json:"blob,omitempty"`
+	OldStatuses    []TestModelStatus      `protobuf:"bytes,14,opt,name=old_statuses,json=ols_statuses,proto3" json:"old_statuses,omitempty"`
 }
 
 func (*TestModel) Reset()        {}

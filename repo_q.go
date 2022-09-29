@@ -213,7 +213,7 @@ func scanObj(s scanner, obj Model) error {
 					case []byte:
 						v = f.val.Addr().Interface()
 					default:
-						v = pq.Array(f.val.Addr().Interface())
+						v = &arrayScanner{f.val.Addr().Interface()}
 					}
 				}
 			default:
@@ -271,4 +271,34 @@ func (s *jsonScanner) Scan(src interface{}) error {
 	}
 
 	return json.Unmarshal(raw, s.dest)
+}
+
+type arrayScanner struct {
+	dest interface{}
+}
+
+func (s *arrayScanner) Scan(src interface{}) error {
+	itemType := reflect.ValueOf(s.dest).Elem().Type().Elem()
+
+	switch itemType.Kind() {
+	case reflect.Int32:
+		dest := []int32{}
+		if err := pq.Array(&dest).Scan(src); err != nil {
+			return err
+		}
+
+		//	ss := reflect.MakeSlice(reflect.SliceOf(itemType), 0, len(dest))
+		ss := reflect.ValueOf(s.dest).Elem()
+		for _, v := range dest {
+			vv := reflect.New(itemType).Elem()
+			vv.Set(reflect.ValueOf(v).Convert(itemType))
+			ss = reflect.Append(ss, vv)
+		}
+
+		reflect.ValueOf(s.dest).Elem().Set(ss)
+
+		return nil
+	default:
+		return pq.Array(s.dest).Scan(src)
+	}
 }
