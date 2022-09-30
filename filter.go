@@ -190,8 +190,8 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 			case reflect.Int, reflect.Int64, reflect.Uint, reflect.Uint64:
 				arrType = "bigint"
 			}
-			placeholders = fmt.Sprintf("array[%s]::%s", strings.Join(s, ", "), arrType)
-			f.lval = fmt.Sprintf("%s::%s", f.lval, arrType)
+			placeholders = fmt.Sprintf("array[%s]::%s[]", strings.Join(s, ", "), arrType)
+			f.lval = fmt.Sprintf("%s::%s[]", f.lval, arrType)
 		}
 	}
 
