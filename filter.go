@@ -180,8 +180,18 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 		switch f.op {
 		case inOp:
 			placeholders = fmt.Sprintf("(%s)", strings.Join(s, ", "))
-		case jsonArrInOp, arrContainOp:
+		case jsonArrInOp:
 			placeholders = fmt.Sprintf("array[%s]", strings.Join(s, ", "))
+		case arrContainOp:
+			arrType := "text"
+			switch reflect.TypeOf(retList[0]).Kind() {
+			case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+				arrType = "integer"
+			case reflect.Int, reflect.Int64, reflect.Uint, reflect.Uint64:
+				arrType = "bigint"
+			}
+			placeholders = fmt.Sprintf("array[%s]::%s", strings.Join(s, ", "), arrType)
+			f.lval = fmt.Sprintf("%s::%s", f.lval, arrType)
 		}
 	}
 
