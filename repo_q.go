@@ -260,6 +260,10 @@ type jsonScanner struct {
 }
 
 func (s *jsonScanner) Scan(src interface{}) error {
+	if src == nil {
+		return nil
+	}
+
 	var raw []byte
 	switch v := src.(type) {
 	case string:
