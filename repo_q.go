@@ -232,6 +232,10 @@ type timeScanner struct {
 }
 
 func (s *timeScanner) Scan(src interface{}) error {
+	if src == nil {
+		return nil
+	}
+
 	v, ok := src.(time.Time)
 	if !ok {
 		return fmt.Errorf("invalid value for timestamp: %v", src)
@@ -246,6 +250,10 @@ type durationScanner struct {
 }
 
 func (s *durationScanner) Scan(src interface{}) error {
+	if src == nil {
+		return nil
+	}
+
 	v, ok := src.(int64)
 	if !ok {
 		return fmt.Errorf("invalid value for duration: %v", src)
