@@ -99,6 +99,10 @@ func (f filterExpr) formatStr(s string) string {
 }
 
 func (f filterExpr) format(gidx int) (string, []interface{}, error) {
+	if f.op == rawOp {
+		return f.lval, []interface{}{}, nil
+	}
+
 	if f.rval == nil {
 		return "", nil, ignoreFilterErr
 	}
@@ -286,7 +290,7 @@ func (f *Filter) Or(orFilter *Filter) *Filter {
 }
 
 func (f *Filter) Raw(cond string) *Filter {
-	f.addExpr(filterExpr{lval: cond, op: rawOp, rval: ""})
+	f.addExpr(filterExpr{lval: cond, op: rawOp, rval: nil})
 	return f
 }
 

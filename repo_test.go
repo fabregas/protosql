@@ -182,7 +182,7 @@ func filterTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 		`[{"num": 12, "name": "Item in nested list", "active": false}]`, []byte(`123`), pq.Array(testModel.OldStatuses),
 	)
 
-	mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(22, 1, "ololo", 32, "").WillReturnError(nil).WillReturnRows(rows)
+	mock.ExpectQuery("^SELECT (.+) FROM xxx_table").WithArgs(22, 1, "ololo", 32).WillReturnError(nil).WillReturnRows(rows)
 
 	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
 	retLst := []*TestModel{}
