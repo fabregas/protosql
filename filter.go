@@ -49,6 +49,8 @@ const (
 	arrContainOp
 
 	orOp
+
+	rawOp
 )
 
 func (o operator) value() (s string) {
@@ -73,6 +75,8 @@ func (o operator) value() (s string) {
 		s = "?|"
 	case arrContainOp:
 		s = "@>"
+	case rawOp:
+		s = ""
 	}
 
 	return
@@ -278,6 +282,11 @@ func (f *Filter) NotEmptyStr(lval string) *Filter {
 
 func (f *Filter) Or(orFilter *Filter) *Filter {
 	f.addExpr(filterExpr{op: orOp, rval: orFilter})
+	return f
+}
+
+func (f *Filter) Raw(cond string) *Filter {
+	f.addExpr(filterExpr{lval: cond, op: rawOp, rval: ""})
 	return f
 }
 
