@@ -155,7 +155,7 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 			retList = append(retList, sv)
 		}
 	case time.Time:
-		retList = append(retList, v)
+		retList = append(retList, v.UTC())
 	case TimestampValue:
 		if v.GetSeconds() == 0 {
 			return "", nil, ignoreFilterErr
