@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -24,6 +25,7 @@ type repoQ struct {
 	sorting interface{}
 	pager   Pager
 	joins   []join
+	groupBy []string
 }
 
 type join struct {
@@ -43,6 +45,11 @@ func (q *repoQ) As(alias string) *repoQ {
 
 func (q *repoQ) Where(f *Filter) *repoQ {
 	q.filter = f
+	return q
+}
+
+func (q *repoQ) GroupBy(fields ...string) *repoQ {
+	q.groupBy = append(q.groupBy, fields...)
 	return q
 }
 
@@ -123,6 +130,10 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 
 	for _, j := range q.joins {
 		baseQuery += j.String()
+	}
+
+	if len(q.groupBy) > 0 {
+		wq += fmt.Sprintf(" GROUP BY %s", strings.Join(q.groupBy, ","))
 	}
 
 	if q.lock {
