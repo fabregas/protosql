@@ -107,7 +107,7 @@ func insertTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	}
 }
 
-func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
+func updateByIDTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	m := *testModel
 
 	nestedJson, _ := json.Marshal(m.Nested)
@@ -133,6 +133,36 @@ func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	err := r.UpdateByID(context.Background(), &m)
 	if err != nil {
 		t.Errorf("UpdateByID() failed: %s", err)
+	}
+}
+
+func updateTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
+	m := *testModel
+
+	nestedJson, _ := json.Marshal(m.Nested)
+	nestedListJson, _ := json.Marshal(m.NestedList)
+	mock.ExpectExec("UPDATE xxx_table").WithArgs(
+		m.Id,
+		m.Name,
+		m.Website,
+		m.Description,
+		m.Status,
+		m.CreateTime.AsTime(),
+		timeGreaterThan(m.UpdateTime.AsTime()),
+		m.OnlineDuration.AsDuration(),
+		m.Count,
+		nestedJson,
+		pq.Array(m.Tags),
+		nestedListJson,
+		m.Blob,
+		pq.Array(m.OldStatuses),
+		m.Name,
+	).WillReturnError(nil).WillReturnResult(sqlmock.NewResult(0, 1))
+
+	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
+	err := r.Update(context.Background(), &m, NewFilter().Eq("name", "test model"))
+	if err != nil {
+		t.Errorf("Update() failed: %s", err)
 	}
 }
 
@@ -247,6 +277,7 @@ func expectEq(t *testing.T, v1, v2 interface{}) {
 
 func TestRepo(t *testing.T) {
 	t.Run("insert", wrapTest(insertTest))
+	t.Run("updateByID", wrapTest(updateByIDTest))
 	t.Run("update", wrapTest(updateTest))
 	t.Run("getbyid", wrapTest(getTest))
 	t.Run("filter", wrapTest(filterTest))

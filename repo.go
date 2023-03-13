@@ -74,6 +74,24 @@ func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
 	return err
 }
 
+func (r *Repo) Update(ctx context.Context, obj Model, f *Filter) error {
+	trySetTime(obj, "UpdateTime", timestamppb.Now())
+
+	q, params := updateQ(r.table, obj, "")
+	stmt, args, err := f.toQuery(len(params)+1, "AND")
+	if err != nil {
+		return err
+	}
+	q += stmt
+	params = append(params, args...)
+
+	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
+
+	_, err = r.getDB(ctx).ExecContext(ctx, q, params...)
+
+	return err
+}
+
 func (r *Repo) Delete(ctx context.Context, f *Filter) error {
 	wq, args, err := f.WhereQuery()
 	if err != nil {
