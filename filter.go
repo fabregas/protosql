@@ -47,6 +47,7 @@ const (
 	notEmptyStrOp
 
 	arrContainOp
+	arrOverlapOp
 
 	orOp
 
@@ -75,6 +76,8 @@ func (o operator) value() (s string) {
 		s = "?|"
 	case arrContainOp:
 		s = "@>"
+	case arrOverlapOp:
+		s = "&&"
 	case rawOp:
 		s = ""
 	}
@@ -175,7 +178,7 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 
 	placeholders := fmt.Sprintf("$%d", gidx)
 	switch f.op {
-	case inOp, jsonArrInOp, arrContainOp:
+	case inOp, jsonArrInOp, arrContainOp, arrOverlapOp:
 		if len(retList) == 0 {
 			return "", nil, ignoreFilterErr
 		}
@@ -190,7 +193,7 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 			placeholders = fmt.Sprintf("(%s)", strings.Join(s, ", "))
 		case jsonArrInOp:
 			placeholders = fmt.Sprintf("array[%s]", strings.Join(s, ", "))
-		case arrContainOp:
+		case arrContainOp, arrOverlapOp:
 			arrType := "text"
 			switch reflect.TypeOf(retList[0]).Kind() {
 			case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint8, reflect.Uint16, reflect.Uint32:
@@ -269,8 +272,13 @@ func (f *Filter) JsonArrIn(lval string, rval interface{}) *Filter {
 	return f
 }
 
-func (f *Filter) ArrContainOp(lval string, rval interface{}) *Filter {
+func (f *Filter) ArrContain(lval string, rval interface{}) *Filter {
 	f.addExpr(filterExpr{lval: lval, op: arrContainOp, rval: rval})
+	return f
+}
+
+func (f *Filter) ArrOverlap(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: arrOverlapOp, rval: rval})
 	return f
 }
 
