@@ -222,6 +222,12 @@ func (r *Repo) getDB(ctx context.Context) dbExec {
 }
 
 func (r *Repo) Transaction(ctx context.Context, txFunc func(context.Context) error) error {
+	// check already opened transaction
+	_, ok := ctx.Value("_dbtx_").(*sql.Tx)
+	if ok {
+		return txFunc(ctx)
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
