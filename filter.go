@@ -113,6 +113,9 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 	switch f.op {
 	case orOp:
 		stmt, args, err := f.rval.(*Filter).toQuery(gidx, "OR")
+		if stmt == "" {
+			return "", nil, ignoreFilterErr
+		}
 		return fmt.Sprintf("(%s)", stmt), args, err
 	case emptyStrOp, notEmptyStrOp:
 		return fmt.Sprintf("%s %s ''", f.lval, f.op.value()), nil, nil
