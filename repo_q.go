@@ -115,6 +115,10 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 		return nil, err
 	}
 
+	if len(q.groupBy) > 0 {
+		wq += fmt.Sprintf(" GROUP BY %s", strings.Join(q.groupBy, ","))
+	}
+
 	if q.sorting != nil {
 		wq += sortQuery(newSorting(q.sorting))
 	}
@@ -130,10 +134,6 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 
 	for _, j := range q.joins {
 		baseQuery += j.String()
-	}
-
-	if len(q.groupBy) > 0 {
-		wq += fmt.Sprintf(" GROUP BY %s", strings.Join(q.groupBy, ","))
 	}
 
 	if q.lock {
