@@ -125,11 +125,10 @@ func getNameFromTag(v string) string {
 	for _, p := range parts {
 		if strings.HasPrefix(p, "name=") {
 			return p[5:]
-		} else {
-			return v
 		}
 	}
-	return ""
+
+	return parts[0]
 }
 
 func trySetTime(m Model, fieldName string, ts *timestamppb.Timestamp) {
