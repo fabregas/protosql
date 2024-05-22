@@ -24,10 +24,20 @@ type (
 	BoolValue  interface{ GetValue() bool }
 )
 
-type sval string
+type sval struct {
+	v string
+}
 
-func (s sval) GetValue() string { return string(s) }
-func WrapString(s string) sval  { return sval(s) }
+func (s sval) GetValue() string { return s.v }
+
+func WrapString(s string) *sval { return &sval{v: s} }
+
+func WrapNotEmptyString(s string) *sval {
+	if s == "" {
+		return nil
+	}
+	return &sval{v: s}
+}
 
 type operator int
 
