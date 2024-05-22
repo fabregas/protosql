@@ -135,9 +135,9 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 	case string:
 		retList = append(retList, f.formatStr(v))
 	case StringValue:
-		if len(v.GetValue()) == 0 {
-			return "", nil, ignoreFilterErr
-		}
+		//if len(v.GetValue()) == 0 {
+		//	return "", nil, ignoreFilterErr
+		//}
 		retList = append(retList, f.formatStr(v.GetValue()))
 	case Int64Value:
 		retList = append(retList, v.GetValue())
