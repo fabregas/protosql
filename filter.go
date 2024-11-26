@@ -52,6 +52,7 @@ const (
 	inOp
 
 	jsonArrInOp
+	jsonContainOp
 
 	emptyStrOp
 	notEmptyStrOp
@@ -86,6 +87,8 @@ func (o operator) value() (s string) {
 	case jsonArrInOp:
 		s = "?|"
 	case arrContainOp:
+		s = "@>"
+	case jsonContainOp:
 		s = "@>"
 	case arrOverlapOp:
 		s = "&&"
@@ -285,6 +288,11 @@ func (f *Filter) Contain(lval string, rval interface{}) *Filter {
 
 func (f *Filter) JsonArrIn(lval string, rval interface{}) *Filter {
 	f.addExpr(filterExpr{lval: lval, op: jsonArrInOp, rval: rval})
+	return f
+}
+
+func (f *Filter) JsonContain(lval string, rval interface{}) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: jsonContainOp, rval: rval})
 	return f
 }
 

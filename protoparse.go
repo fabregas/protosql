@@ -36,14 +36,11 @@ func parseProtoMsg(m Model) []parsedField {
 	var r []parsedField
 
 	for i := 0; i < t.NumField(); i++ {
-		val, ok := t.Field(i).Tag.Lookup("protobuf")
+		val, ok := getDataFieldName(t.Field(i))
 		if !ok {
-			val, ok = t.Field(i).Tag.Lookup("db")
-			if !ok {
-				continue
-			}
+			continue
 		}
-		r = append(r, parsedField{name: getNameFromTag(val), val: v.Field(i)})
+		r = append(r, parsedField{name: val, val: v.Field(i)})
 	}
 
 	return r
@@ -118,6 +115,18 @@ func toJson(v reflect.Value) interface{} {
 	}
 
 	return b
+}
+
+func getDataFieldName(f reflect.StructField) (string, bool) {
+	val, ok := f.Tag.Lookup("protobuf")
+	if !ok {
+		val, ok = f.Tag.Lookup("db")
+		if !ok {
+			return "", false
+		}
+	}
+
+	return getNameFromTag(val), true
 }
 
 func getNameFromTag(v string) string {
