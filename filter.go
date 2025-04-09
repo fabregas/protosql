@@ -63,6 +63,8 @@ const (
 
 	orOp
 
+	notOp
+
 	rawOp
 )
 
@@ -131,6 +133,12 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 			return "", nil, ignoreFilterErr
 		}
 		return fmt.Sprintf("(%s)", stmt), args, err
+	case notOp:
+		stmt, args, err := f.rval.(*Filter).toQuery(gidx, "OR")
+		if stmt == "" {
+			return "", nil, ignoreFilterErr
+		}
+		return fmt.Sprintf("NOT (%s)", stmt), args, err
 	case emptyStrOp, notEmptyStrOp:
 		return fmt.Sprintf("%s %s ''", f.lval, f.op.value()), nil, nil
 	case arrEmptyOp:
@@ -323,6 +331,11 @@ func (f *Filter) NotEmptyStr(lval string) *Filter {
 
 func (f *Filter) Or(orFilter *Filter) *Filter {
 	f.addExpr(filterExpr{op: orOp, rval: orFilter})
+	return f
+}
+
+func (f *Filter) Not(orFilter *Filter) *Filter {
+	f.addExpr(filterExpr{op: notOp, rval: orFilter})
 	return f
 }
 
