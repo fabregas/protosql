@@ -60,6 +60,7 @@ const (
 	arrContainOp
 	arrOverlapOp
 	arrEmptyOp
+	jsonArrEmptyOp
 
 	orOp
 
@@ -143,6 +144,8 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 		return fmt.Sprintf("%s %s ''", f.lval, f.op.value()), nil, nil
 	case arrEmptyOp:
 		return fmt.Sprintf("COALESCE(array_length(%s, 1), 0) = 0", f.lval), nil, nil
+	case jsonArrEmptyOp:
+		return fmt.Sprintf("COALESCE(jsonb_array_length(%s), 0) = 0", f.lval), nil, nil
 	}
 
 	if val := reflect.ValueOf(f.rval); val.Kind() == reflect.Ptr && val.IsNil() {
@@ -301,6 +304,11 @@ func (f *Filter) JsonArrIn(lval string, rval interface{}) *Filter {
 
 func (f *Filter) JsonContain(lval string, rval interface{}) *Filter {
 	f.addExpr(filterExpr{lval: lval, op: jsonContainOp, rval: rval})
+	return f
+}
+
+func (f *Filter) JsonArrEmpty(lval string) *Filter {
+	f.addExpr(filterExpr{lval: lval, op: jsonArrEmptyOp, rval: ""})
 	return f
 }
 
