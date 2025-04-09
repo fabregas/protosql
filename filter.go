@@ -145,7 +145,7 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 	case arrEmptyOp:
 		return fmt.Sprintf("COALESCE(array_length(%s, 1), 0) = 0", f.lval), nil, nil
 	case jsonArrEmptyOp:
-		return fmt.Sprintf("COALESCE(jsonb_array_length(%s), 0) = 0", f.lval), nil, nil
+		return fmt.Sprintf("COALESCE(json_array_length(%s), 0) = 0", f.lval), nil, nil
 	}
 
 	if val := reflect.ValueOf(f.rval); val.Kind() == reflect.Ptr && val.IsNil() {
