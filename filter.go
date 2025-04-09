@@ -92,7 +92,7 @@ func (o operator) value() (s string) {
 	case arrContainOp:
 		s = "@>"
 	case jsonContainOp:
-		s = "@>"
+		s = "?"
 	case arrOverlapOp:
 		s = "&&"
 	case rawOp:
@@ -208,6 +208,8 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 
 	placeholders := fmt.Sprintf("$%d", gidx)
 	switch f.op {
+	case jsonContainOp:
+		f.lval = fmt.Sprintf("(%s)::jsonb", f.lval)
 	case inOp, jsonArrInOp, arrContainOp, arrOverlapOp:
 		if len(retList) == 0 {
 			return "", nil, ignoreFilterErr
