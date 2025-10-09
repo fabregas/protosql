@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -27,6 +28,8 @@ func (r *Repo) Insert(ctx context.Context, obj Model) error {
 
 	q, params := insertQ(r.table, obj)
 
+	defer addMetricSince("insert", q, time.Now())
+
 	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
 
 	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
@@ -43,6 +46,8 @@ func (r *Repo) InsertDuplicateIgnore(ctx context.Context, obj Model) (bool, erro
 
 	q += " ON CONFLICT(id) DO NOTHING"
 
+	defer addMetricSince("insert", q, time.Now())
+
 	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
 
 	res, err := r.getDB(ctx).ExecContext(ctx, q, params...)
@@ -58,6 +63,8 @@ func (r *Repo) InsertDuplicateIgnore(ctx context.Context, obj Model) (bool, erro
 func (r *Repo) Exec(ctx context.Context, q string, params ...interface{}) error {
 	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
 
+	defer addMetricSince("exec", q, time.Now())
+
 	_, err := r.getDB(ctx).ExecContext(ctx, q, params...)
 	return err
 }
@@ -66,6 +73,8 @@ func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
 	trySetTime(obj, "UpdateTime", timestamppb.Now())
 
 	q, params := updateQ(r.table, obj, "id")
+
+	defer addMetricSince("update", q, time.Now())
 
 	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
 
@@ -85,6 +94,8 @@ func (r *Repo) Update(ctx context.Context, obj Model, f *Filter) error {
 	q += stmt
 	params = append(params, args...)
 
+	defer addMetricSince("update", q, time.Now())
+
 	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
 
 	_, err = r.getDB(ctx).ExecContext(ctx, q, params...)
@@ -99,6 +110,8 @@ func (r *Repo) Delete(ctx context.Context, f *Filter) error {
 	}
 
 	q := fmt.Sprintf("DELETE FROM %s%s", r.table, wq)
+
+	defer addMetricSince("delete", q, time.Now())
 
 	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, args)
 

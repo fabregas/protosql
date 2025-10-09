@@ -140,6 +140,8 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 		wq += " FOR UPDATE"
 	}
 
+	defer addMetricSince("select", baseQuery+wq, time.Now())
+
 	q.r.logger.Debugf("QUERY: %s, ARGS: %+v", baseQuery+wq, args)
 
 	rows, err := q.r.getDB(q.ctx).QueryContext(q.ctx, baseQuery+wq, args...)
