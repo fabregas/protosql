@@ -10,16 +10,20 @@ import (
 var (
 	metricsSink *metrics.InmemSink
 
-	useMetrics atomic.Bool
+	useMetrics int64
 )
 
 func EnableMetrics() {
 	metricsSink = metrics.NewInmemSink(60*time.Second, 10*time.Minute)
 
-	useMetrics.Store(true)
+	atomic.StoreInt64(&useMetrics, 1)
 }
 
 func LogMetrics(logger Logger) {
+	if atomic.LoadInt64(&useMetrics) == 0 {
+		return
+	}
+
 	snap := metricsSink.Data()
 	for _, interval := range snap {
 		for name, data := range interval.Gauges {
@@ -36,7 +40,7 @@ func LogMetrics(logger Logger) {
 }
 
 func addMetricSample(method, q string, val float32) {
-	if !useMetrics.Load() {
+	if atomic.LoadInt64(&useMetrics) == 0 {
 		return
 	}
 
