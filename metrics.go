@@ -13,8 +13,8 @@ var (
 	useMetrics int64
 )
 
-func EnableMetrics() {
-	metricsSink = metrics.NewInmemSink(60*time.Second, 10*time.Minute)
+func EnableMetrics(interval, retain time.Duration) {
+	metricsSink = metrics.NewInmemSink(interval, retain)
 
 	atomic.StoreInt64(&useMetrics, 1)
 }
@@ -33,8 +33,7 @@ func LogMetrics(logger Logger) {
 			logger.Infof("Counter: %s = %d", name, data.Count)
 		}
 		for name, data := range interval.Samples {
-			logger.Infof("Sample: %s = count=%d, mean=%.2f",
-				name, data.Count, data.Mean)
+			logger.Infof("Sample: %s = %s", name, data.AggregateSample.String())
 		}
 	}
 }
