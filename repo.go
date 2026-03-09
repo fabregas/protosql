@@ -84,7 +84,7 @@ func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
 }
 
 func (r *Repo) Update(ctx context.Context, obj Model, f *Filter) error {
-	trySetTime(obj, "UpdateTime", timestamppb.Now())
+	tryUpdateTime(obj, "UpdateTime", timestamppb.Now())
 
 	q, params := updateQ(r.table, obj, "")
 	stmt, args, err := f.toQuery(len(params)+1, "AND")
