@@ -147,6 +147,18 @@ func trySetTime(m Model, fieldName string, ts *timestamppb.Timestamp) {
 	}
 
 	f := v.FieldByName(fieldName)
+	if f.IsValid() && f.IsNil() {
+		f.Set(reflect.ValueOf(ts))
+	}
+}
+
+func tryUpdateTime(m Model, fieldName string, ts *timestamppb.Timestamp) {
+	v := reflect.ValueOf(m)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	f := v.FieldByName(fieldName)
 	if f.IsValid() {
 		f.Set(reflect.ValueOf(ts))
 	}

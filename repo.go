@@ -70,7 +70,7 @@ func (r *Repo) Exec(ctx context.Context, q string, params ...interface{}) error 
 }
 
 func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
-	trySetTime(obj, "UpdateTime", timestamppb.Now())
+	tryUpdateTime(obj, "UpdateTime", timestamppb.Now())
 
 	q, params := updateQ(r.table, obj, "id")
 
