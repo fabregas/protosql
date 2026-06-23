@@ -295,6 +295,14 @@ func (f *Filter) Lte(lval string, rval interface{}) *Filter {
 }
 
 func (f *Filter) Contain(lval string, rval interface{}) *Filter {
+	switch v := rval.(type) {
+	case []string:
+		for _, item := range v {
+			f.addExpr(filterExpr{lval: lval, op: containOp, rval: item})
+		}
+		return f
+	}
+
 	f.addExpr(filterExpr{lval: lval, op: containOp, rval: rval})
 	return f
 }
