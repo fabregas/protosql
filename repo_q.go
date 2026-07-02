@@ -180,8 +180,9 @@ func (q *repoQ) globalSearchExec() (*sql.Rows, error) {
 		pager.size = q.pager.GetCurrentPage() * q.pager.GetPageSize()
 	}
 
+	args = append(args, "%"+q.globalSearchTerm+"%")
 	args = append(args, q.globalSearchTerm)
-	idQ, subArgs, err := q.buildQ(2, "id = $1", pager)
+	idQ, subArgs, err := q.buildQ(3, "id = $2", pager)
 	if err != nil {
 		return nil, err
 	}
@@ -189,12 +190,12 @@ func (q *repoQ) globalSearchExec() (*sql.Rows, error) {
 	args = append(args, subArgs...)
 
 	for _, rule := range q.globalSearchRules {
-		nextQ, _, err := q.buildQ(2, rule.On, pager)
+		nextQ, _, err := q.buildQ(3, rule.On, pager)
 		if err != nil {
 			return nil, err
 		}
 
-		subQ := fmt.Sprintf("(SELECT main.* FROM %s CROSS JOIN LATERAL (%s) main WHERE %s $1)", rule.Table, nextQ, rule.Query)
+		subQ := fmt.Sprintf("(SELECT main.* FROM %s CROSS JOIN LATERAL (%s) main WHERE %s)", rule.Table, nextQ, rule.Query)
 		subQueries = append(subQueries, subQ)
 	}
 
