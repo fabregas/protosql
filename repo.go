@@ -141,6 +141,10 @@ func (r *Repo) SelectQuery() string {
 	return r.selectQuery("", nil)
 }
 
+func (r *Repo) Union(ctx context.Context, queries ...*repoQ) *repoQ {
+	return &repoQ{r: r, ctx: ctx, unionQueries: queries}
+}
+
 func (r *Repo) selectQuery(alias string, reqFields []string) string {
 	var fields []string
 	al := alias

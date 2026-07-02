@@ -201,6 +201,45 @@ func getTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	expectEq(t, ret.OldStatuses, testModel.OldStatuses)
 }
 
+func unionTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
+	t0 := time.Now().Add(-time.Minute)
+	t1 := time.Now()
+	tags := []string{"test", "model"}
+	rows := sqlmock.NewRows(
+		[]string{"id", "name", "website", "descr", "status", "create_time", "update_time", "online_duration", "count", "nested", "tags", "nested_list", "blob", "old_statuses"},
+	).AddRow(
+		22, "test", "test.com", "some descr", 1, t0, t1, 10000, 334, `{"num": 123, "name": "some name", "active": true}`, pq.Array(&tags),
+		`[{"num": 12, "name": "Item in nested list", "active": false}]`, []byte(`123`), pq.Array(testModel.OldStatuses),
+	)
+
+	mock.ExpectQuery("^WITH combined_results AS").WithArgs(22, 23).WillReturnError(nil).WillReturnRows(rows)
+
+	r := NewRepo(db, "xxx_table", &TestModel{}, dummyLogger{})
+	ret := TestModel{}
+	err := r.Union(
+		context.Background(),
+		r.Select(context.Background()).Where(NewFilter().Eq("id", 22)),
+		r.Select(context.Background()).Where(NewFilter().Eq("id", 23)),
+	).FetchOne(&ret)
+	if err != nil {
+		t.Fatalf("Union() failed: %s", err)
+	}
+
+	expectEq(t, ret.Id, int32(22))
+	expectEq(t, ret.Name, "test")
+	expectEq(t, ret.Website, "test.com")
+	expectEq(t, ret.Description, "some descr")
+	expectEq(t, ret.Status, ModelStatus_STATUS_INITIAL)
+	expectEq(t, ret.CreateTime.AsTime(), t0.UTC())
+	expectEq(t, ret.UpdateTime.AsTime(), t1.UTC())
+	expectEq(t, ret.Count, int64(334))
+	expectEq(t, ret.Nested.Num, int32(123))
+	expectEq(t, ret.Nested.Name, "some name")
+	expectEq(t, ret.Nested.Active, true)
+	expectEq(t, ret.Tags, tags)
+	expectEq(t, ret.OldStatuses, testModel.OldStatuses)
+}
+
 func filterTest(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) {
 	t0 := time.Now().Add(-time.Minute)
 	t1 := time.Now()
@@ -282,6 +321,7 @@ func TestRepo(t *testing.T) {
 	t.Run("getbyid", wrapTest(getTest))
 	t.Run("filter", wrapTest(filterTest))
 	t.Run("transaction", wrapTest(txTest))
+	t.Run("union", wrapTest(unionTest))
 }
 
 // dummy logger

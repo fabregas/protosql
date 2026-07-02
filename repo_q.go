@@ -15,8 +15,12 @@ import (
 )
 
 type repoQ struct {
-	r   *Repo
-	ctx context.Context
+	r            *Repo
+	ctx          context.Context
+	unionQueries []*repoQ // for UNION query
+
+	globalSearchRules []SearchRule
+	globalSearchTerm  string
 
 	query   string
 	alias   string
@@ -26,6 +30,12 @@ type repoQ struct {
 	pager   Pager
 	joins   []join
 	groupBy []string
+}
+
+type SearchRule struct {
+	Table string
+	On    string
+	Query string
 }
 
 type join struct {
@@ -78,6 +88,12 @@ func (q *repoQ) LeftJoin(table, bindQ string) *repoQ {
 	return q
 }
 
+func (q *repoQ) WithGlobalSearch(rules []SearchRule, term string) *repoQ {
+	q.globalSearchRules = rules
+	q.globalSearchTerm = term
+	return q
+}
+
 func (q *repoQ) FetchOne(o Model) error {
 	rows, err := q.exec()
 	if err != nil {
@@ -109,10 +125,22 @@ func (q *repoQ) Fetch(o interface{}) error {
 	return scanObjects(rows, o)
 }
 
-func (q *repoQ) exec() (*sql.Rows, error) {
-	wq, args, err := q.filter.WhereQuery()
+func (q *repoQ) buildQ(startIdx int, rawFilter string, pager Pager) (string, []interface{}, error) {
+	wq, args, err := q.filter.toQuery(startIdx, "AND")
 	if err != nil {
-		return nil, err
+		return "", nil, err
+	}
+
+	if rawFilter != "" {
+		if wq == "" {
+			wq = rawFilter
+		} else {
+			wq = rawFilter + " AND " + wq
+		}
+	}
+
+	if wq != "" {
+		wq = fmt.Sprintf(" WHERE %s ", wq)
 	}
 
 	if len(q.groupBy) > 0 {
@@ -123,8 +151,8 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 		wq += sortQuery(newSorting(q.sorting))
 	}
 
-	if q.pager != nil {
-		wq += pageQuery(q.pager)
+	if pager != nil {
+		wq += pageQuery(pager)
 	}
 
 	baseQuery := q.query
@@ -140,16 +168,135 @@ func (q *repoQ) exec() (*sql.Rows, error) {
 		wq += " FOR UPDATE"
 	}
 
-	defer addMetricSince("select", baseQuery+wq, time.Now())
+	return baseQuery + wq, args, nil
+}
 
-	q.r.logger.Debugf("QUERY: %s, ARGS: %+v", baseQuery+wq, args)
+func (q *repoQ) globalSearchExec() (*sql.Rows, error) {
+	var args []interface{}
+	var subQueries []string
 
-	rows, err := q.r.getDB(q.ctx).QueryContext(q.ctx, baseQuery+wq, args...)
+	pager := Page(0, 25)
+	if q.pager != nil {
+		pager.size = q.pager.GetCurrentPage() * q.pager.GetPageSize()
+	}
+
+	args = append(args, q.globalSearchTerm)
+	idQ, subArgs, err := q.buildQ(2, "id = $1", pager)
+	if err != nil {
+		return nil, err
+	}
+	subQueries = append(subQueries, "("+idQ+")")
+	args = append(args, subArgs...)
+
+	for _, rule := range q.globalSearchRules {
+		nextQ, _, err := q.buildQ(2, rule.On, pager)
+		if err != nil {
+			return nil, err
+		}
+
+		subQ := fmt.Sprintf("(SELECT main.* FROM %s CROSS JOIN LATERAL (%s) main WHERE %s $1)", rule.Table, nextQ, rule.Query)
+		subQueries = append(subQueries, subQ)
+	}
+
+	uq := fmt.Sprintf(
+		"WITH combined_results AS (%s) SELECT * FROM combined_results",
+		strings.Join(subQueries, " UNION "),
+	)
+
+	if len(q.groupBy) > 0 {
+		uq += fmt.Sprintf(" GROUP BY %s", strings.Join(q.groupBy, ","))
+	}
+
+	if q.sorting != nil {
+		uq += sortQuery(newSorting(q.sorting))
+	}
+
+	if q.pager != nil {
+		uq += pageQuery(q.pager)
+	}
+
+	defer addMetricSince("select", uq, time.Now())
+
+	q.r.logger.Debugf("QUERY: %s, ARGS: %+v", uq, args)
+
+	rows, err := q.r.getDB(q.ctx).QueryContext(q.ctx, uq, args...)
 	if err != nil {
 		return nil, err
 	}
 
 	return rows, nil
+}
+
+func (q *repoQ) exec() (*sql.Rows, error) {
+	if len(q.unionQueries) > 0 {
+		return q.execUnion()
+	}
+
+	if q.globalSearchTerm != "" {
+		return q.globalSearchExec()
+	}
+
+	req, args, err := q.buildQ(1, "", q.pager)
+	if err != nil {
+		return nil, err
+	}
+
+	defer addMetricSince("select", req, time.Now())
+
+	q.r.logger.Debugf("QUERY: %s, ARGS: %+v", req, args)
+
+	rows, err := q.r.getDB(q.ctx).QueryContext(q.ctx, req, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
+}
+
+func (q *repoQ) execUnion() (*sql.Rows, error) {
+	idx := 1
+	var args []interface{}
+	var subQueries []string
+	for _, u := range q.unionQueries {
+		subQ, subArgs, err := u.buildQ(idx, "", q.pager)
+		if err != nil {
+			return nil, err
+		}
+
+		subQueries = append(subQueries, fmt.Sprintf("( %s )", subQ))
+		args = append(args, subArgs...)
+
+		idx += len(subArgs)
+	}
+
+	uq := fmt.Sprintf(
+		"WITH combined_results AS (%s) SELECT * FROM combined_results",
+		strings.Join(subQueries, " UNION "),
+	)
+
+	if len(q.groupBy) > 0 {
+		uq += fmt.Sprintf(" GROUP BY %s", strings.Join(q.groupBy, ","))
+	}
+
+	if q.sorting != nil {
+		uq += sortQuery(newSorting(q.sorting))
+	}
+
+	if q.pager != nil {
+		uq += pageQuery(q.pager)
+	}
+
+	defer addMetricSince("select", uq, time.Now())
+
+	q.r.logger.Debugf("QUERY: %s, ARGS: %+v", uq, args)
+
+	rows, err := q.r.getDB(q.ctx).QueryContext(q.ctx, uq, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
+
 }
 
 func scanObjects(rows *sql.Rows, o interface{}) error {
