@@ -176,7 +176,7 @@ func (q *repoQ) globalSearchExec() (*sql.Rows, error) {
 	var subQueries []string
 
 	pager := Page(0, 25)
-	if q.pager != nil {
+	if q.pager != nil && q.pager.GetCurrentPage() > 0 {
 		pager.size = q.pager.GetCurrentPage() * q.pager.GetPageSize()
 	}
 
