@@ -170,20 +170,20 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 	case BoolValue:
 		retList = append(retList, v.GetValue())
 	case []int:
-		for _, iv := range v {
-			retList = append(retList, iv)
+		if len(v) > 0 {
+			retList = append(retList, v)
 		}
 	case []int32:
-		for _, iv := range v {
-			retList = append(retList, iv)
+		if len(v) > 0 {
+			retList = append(retList, v)
 		}
 	case []int64:
-		for _, iv := range v {
-			retList = append(retList, iv)
+		if len(v) > 0 {
+			retList = append(retList, v)
 		}
 	case []string:
-		for _, sv := range v {
-			retList = append(retList, sv)
+		if len(v) > 0 {
+			retList = append(retList, v)
 		}
 	case time.Time:
 		retList = append(retList, v.UTC())
@@ -204,36 +204,28 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 		return "", nil, fmt.Errorf("unexpected type of rval in SQL filter: %T", f.rval)
 	}
 
+	if len(retList) == 0 {
+		return "", nil, ignoreFilterErr
+	}
+
 	placeholders := fmt.Sprintf("$%d", gidx)
 	switch f.op {
 	case jsonContainOp:
 		f.lval = fmt.Sprintf("(%s)::jsonb", f.lval)
 	case inOp:
 		placeholders = fmt.Sprintf("ANY($%d)", gidx)
-	case jsonArrInOp, arrContainOp, arrOverlapOp:
-		if len(retList) == 0 {
-			return "", nil, ignoreFilterErr
+	case jsonArrInOp:
+		placeholders = fmt.Sprintf("$%d::text[]", gidx)
+	case arrContainOp, arrOverlapOp:
+		arrType := "text"
+		switch reflect.TypeOf(retList[0]).Kind() {
+		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+			arrType = "integer"
+		case reflect.Int, reflect.Int64, reflect.Uint, reflect.Uint64:
+			arrType = "bigint"
 		}
-
-		s := make([]string, len(retList))
-		for i := 0; i < len(retList); i++ {
-			s[i] = fmt.Sprintf("$%d", gidx+i)
-		}
-
-		switch f.op {
-		case jsonArrInOp:
-			placeholders = fmt.Sprintf("array[%s]", strings.Join(s, ", "))
-		case arrContainOp, arrOverlapOp:
-			arrType := "text"
-			switch reflect.TypeOf(retList[0]).Kind() {
-			case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint8, reflect.Uint16, reflect.Uint32:
-				arrType = "integer"
-			case reflect.Int, reflect.Int64, reflect.Uint, reflect.Uint64:
-				arrType = "bigint"
-			}
-			placeholders = fmt.Sprintf("array[%s]::%s[]", strings.Join(s, ", "), arrType)
-			f.lval = fmt.Sprintf("%s::%s[]", f.lval, arrType)
-		}
+		placeholders = fmt.Sprintf("$%d::%s[]", gidx, arrType)
+		f.lval = fmt.Sprintf("%s::%s[]", f.lval, arrType)
 	}
 
 	return fmt.Sprintf("%s %s %s", f.lval, f.op.value(), placeholders), retList, nil
