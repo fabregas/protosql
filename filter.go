@@ -71,7 +71,7 @@ const (
 
 func (o operator) value() (s string) {
 	switch o {
-	case eqOp, emptyStrOp, arrEmptyOp:
+	case eqOp, emptyStrOp, arrEmptyOp, inOp:
 		s = "="
 	case neqOp, notEmptyStrOp:
 		s = "!="
@@ -85,8 +85,6 @@ func (o operator) value() (s string) {
 		s = "<="
 	case containOp:
 		s = "ILIKE"
-	case inOp:
-		s = "IN"
 	case jsonArrInOp:
 		s = "?|"
 	case arrContainOp:
@@ -210,7 +208,9 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 	switch f.op {
 	case jsonContainOp:
 		f.lval = fmt.Sprintf("(%s)::jsonb", f.lval)
-	case inOp, jsonArrInOp, arrContainOp, arrOverlapOp:
+	case inOp:
+		placeholders = fmt.Sprintf("ANY($%d)", gidx)
+	case jsonArrInOp, arrContainOp, arrOverlapOp:
 		if len(retList) == 0 {
 			return "", nil, ignoreFilterErr
 		}
@@ -221,8 +221,6 @@ func (f filterExpr) format(gidx int) (string, []interface{}, error) {
 		}
 
 		switch f.op {
-		case inOp:
-			placeholders = fmt.Sprintf("(%s)", strings.Join(s, ", "))
 		case jsonArrInOp:
 			placeholders = fmt.Sprintf("array[%s]", strings.Join(s, ", "))
 		case arrContainOp, arrOverlapOp:
