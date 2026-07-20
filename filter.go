@@ -312,7 +312,15 @@ func (f *Filter) JsonArrEmpty(lval string) *Filter {
 	return f
 }
 
-func mustBeSlice(val interface{}) interface{} {
+func shouldBeSlice(val interface{}) interface{} {
+	if val == nil {
+		return val
+	}
+
+	if v := reflect.ValueOf(val); v.Kind() == reflect.Ptr && v.IsNil() {
+		return val
+	}
+
 	switch v := val.(type) {
 	case int:
 		return []int{int(v)}
@@ -336,12 +344,12 @@ func mustBeSlice(val interface{}) interface{} {
 }
 
 func (f *Filter) ArrContain(lval string, rval interface{}) *Filter {
-	f.addExpr(filterExpr{lval: lval, op: arrContainOp, rval: mustBeSlice(rval)})
+	f.addExpr(filterExpr{lval: lval, op: arrContainOp, rval: shouldBeSlice(rval)})
 	return f
 }
 
 func (f *Filter) ArrOverlap(lval string, rval interface{}) *Filter {
-	f.addExpr(filterExpr{lval: lval, op: arrOverlapOp, rval: mustBeSlice(rval)})
+	f.addExpr(filterExpr{lval: lval, op: arrOverlapOp, rval: shouldBeSlice(rval)})
 	return f
 }
 
