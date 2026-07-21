@@ -254,7 +254,7 @@ func (f *Filter) Neq(lval string, rval interface{}) *Filter {
 }
 
 func (f *Filter) In(lval string, rval interface{}) *Filter {
-	f.addExpr(filterExpr{lval: lval, op: inOp, rval: rval})
+	f.addExpr(filterExpr{lval: lval, op: inOp, rval: shouldBeSlice(rval)})
 	return f
 }
 
