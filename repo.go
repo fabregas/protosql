@@ -69,6 +69,27 @@ func (r *Repo) Exec(ctx context.Context, q string, params ...interface{}) error 
 	return err
 }
 
+func (r *Repo) ExecBatch(ctx context.Context, q string, params [][]interface{}) error {
+	r.logger.Debugf("QUERY: %s, ARGS: %+v", q, params)
+
+	defer addMetricSince("exec_batch", q, time.Now())
+
+	stmt, err := r.getDB(ctx).PrepareContext(ctx, q)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, row := range params {
+		_, err = stmt.ExecContext(ctx, row...)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *Repo) UpdateByID(ctx context.Context, obj Model) error {
 	tryUpdateTime(obj, "UpdateTime", timestamppb.Now())
 
@@ -222,6 +243,7 @@ func objFields(obj Model) []string {
 type dbExec interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
 }
 
 func (r *Repo) getDB(ctx context.Context) dbExec {
