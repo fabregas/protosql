@@ -338,6 +338,13 @@ func shouldBeSlice(val interface{}) interface{} {
 		return []int{int(v.GetValue())}
 	case IntValue:
 		return []int{int(v.GetValue())}
+	case protoreflect.Enum:
+		n := int32(v.Number())
+		if n == 0 {
+			// enum val with 0 must be UNSPECIFIED and should not be filtered
+			return nil
+		}
+		return []int{int(n)}
 	default:
 		return val
 	}
